@@ -3,15 +3,19 @@ package main
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"reflect"
 	"strings"
 	"syscall"
 	"time"
+
+	"crypto/tls"
 
 	"code.google.com/p/go.net/ipv4"
 	"code.google.com/p/go.net/ipv6"
@@ -70,17 +74,24 @@ type Server struct {
 	httpconn net.Listener
 }
 
-func cleanExists(name string, ips []IP) (ret []IP) {
+var httpTransport *http.Transport = &http.Transport{
+	Dial:            (&net.Dialer{DualStack: true}).Dial,
+	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+}
+var httpClient *http.Client = &http.Client{Transport: httpTransport, Timeout: 10 * time.Second}
+
+func cleanExists(name string, ips []IP) []IP {
+	ret := make([]IP, len(ips))
+	copy(ret[:], ips[:])
+
 	iface, err := net.InterfaceByName("tap" + name)
 	if err != nil {
-		return nil
+		return ips
 	}
 	addrs, err := iface.Addrs()
 	if err != nil {
-		return nil
+		return ips
 	}
-
-	copy(ret[:], ips[:])
 	for _, addr := range addrs {
 	loop:
 		for i, ip := range ret {
@@ -165,18 +176,17 @@ func (s *Server) Start() error {
 		}
 		err = cmd.Run()
 		if err != nil {
-			log.Printf("fff1 ip -4 a add %s peer %s dev %s\n", peer, addr.Address+"/"+addr.Prefix, "tap"+s.name)
-			return err
+			return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
 		}
 	}
 
-	cmd = exec.Command("sysctl", "-w", "net.ipv4.conf.tap"+s.name+".proxy_arp", "=", "1")
-	err = cmd.Run()
+	cmd = exec.Command("sysctl", "-w", "net.ipv4.conf.tap"+s.name+".proxy_arp=1")
+	aa, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf(" %s\n", err.Error())
+		return fmt.Errorf("Failed to enable proxy_arp: %s sysctl -w net.ipv4.conf.tap%s.proxy_arp=1", aa, s.name)
 	}
 
-	log.Printf("ListenAndServeIPv4 %s\n", s.name)
+	log.Printf("%s ListenAndServeIPv4\n", s.name)
 	go s.ListenAndServeIPv4()
 
 	for _, addr := range metaIP {
@@ -187,22 +197,20 @@ func (s *Server) Start() error {
 		cmd := exec.Command("ip", "-6", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
 		err = cmd.Run()
 		if err != nil {
-			log.Printf("fff1 ip -6 a add %s dev %s\n", addr.Address+"/"+addr.Prefix, "tap"+s.name)
-			return err
+			return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
 		}
 
 		cmd = exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
 		err = cmd.Run()
 		if err != nil {
-			log.Printf("fff5 %s\n", err.Error())
-			return err
+			return fmt.Errorf("Failed to replace route for: %s", addr.Address+"/"+addr.Prefix)
 		}
 	}
 
-	log.Printf("ListenAndServeIPv6 %s\n", s.name)
+	log.Printf("%s ListenAndServeIPv6\n", s.name)
 	go s.ListenAndServeIPv6()
 
-	log.Printf("ListenAdnServerHTTP %s\n", s.name)
+	log.Printf("%s ListenAndServerHTTP\n", s.name)
 	go s.ListenAndServerHTTP()
 
 	select {}
@@ -226,6 +234,13 @@ func (s *Server) Stop() (err error) {
 	}
 	if s.ipv6conn != nil {
 		err = s.ipv6conn.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	if s.httpconn != nil {
+		err = s.httpconn.Close()
 		if err != nil {
 			return err
 		}
@@ -290,7 +305,6 @@ func (s *Server) ListenAndServerHTTP() (err error) {
 	ipAddr := &net.TCPAddr{IP: net.ParseIP("169.254.169.254"), Port: 80}
 	conn, err := net.ListenTCP("tcp", ipAddr)
 	if err != nil {
-		log.Printf("fff6 %s\n", err.Error())
 		return err
 	}
 	err = bindToDevice2(conn, "tap"+s.name)
@@ -300,11 +314,11 @@ func (s *Server) ListenAndServerHTTP() (err error) {
 
 	s.httpconn = conn
 
-	http.Handle("/", s)
+	//	http.Handle("/", s)
 
 	httpsrv := &http.Server{
 		Addr:           "169.254.169.254:80",
-		Handler:        nil,
+		Handler:        s,
 		ReadTimeout:    20 * time.Second,
 		WriteTimeout:   20 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -314,13 +328,61 @@ func (s *Server) ListenAndServerHTTP() (err error) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL)
+
+	var res *http.Response
+	var host string
+	var port string
+
+	u, _ := url.Parse(s.metadata.CloudConfig.URL)
+	if strings.Index(u.Host, ":") > 0 {
+		host, port, _ = net.SplitHostPort(u.Host)
+	} else {
+		host = u.Host
+	}
+	if port == "" {
+		if u.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+
+	addrs, err := net.LookupIP(host)
+	if err != nil {
+		w.WriteHeader(503)
+		return
+	}
+
+	var addr net.IP
+
+	for _, addr = range addrs {
+		if addr.To4() == nil {
+			break
+		}
+	}
+
 	switch r.URL.String() {
 	case "/":
+		w.Write([]byte("2009-04-04\nlatest\n"))
+	case "/2009-04-04/meta-data/", "/latest/meta-data/":
+		w.Write([]byte("public-hostname\nhostname\nlocal-hostname\ninstance-id\npublic-ipv4\npublic-keys\n"))
+	case "/2009-04-04/meta-data/public-hostname", "/2009-04-04/meta-data/hostname", "/2009-04-04/meta-data/local-hostname", "/latest/meta-data/public-hostname", "/latest/meta-data/hostname", "/latest/meta-data/local-hostname":
+		w.Write([]byte(s.name + ".simplecloud.club\n"))
+	case "/2009-04-04/meta-data/instance-id", "/latest/meta-data/instance-id":
+		w.Write([]byte(s.name + "\n"))
+	case "/2009-04-04/meta-data/public-ipv4", "/latest/meta-data/public-ipv4":
 		w.Write([]byte(""))
-	case "/2009-04-04/meta-data/instance-id":
-		w.Write([]byte(s.name))
-	case "/2009-04-04/user-data":
-		res, err := http.Get(s.metadata.CloudConfig.URL)
+	case "/2009-04-04/meta-data/public-keys", "/latest/meta-data/public-keys":
+		w.Write([]byte("0\n"))
+	case "/2009-04-04/meta-data/public-keys/0/openssh-key", "/latest/meta-data/public-keys/0/openssh-key":
+		w.Write([]byte(""))
+	case "/2009-04-04/user-data", "/latest/user-data":
+		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
+		req.URL = u
+		req.URL.Host = net.JoinHostPort(addr.String(), port)
+		req.Host = host
+		res, err = httpClient.Do(req)
 		if res != nil && res.Body != nil {
 			defer res.Body.Close()
 		}
@@ -475,13 +537,13 @@ func (s *Server) ListenAndServeIPv6() (err error) {
 		case ipv6.ICMPTypeRouterSolicitation:
 			rs := &icmpv6.RouterSolicitation{}
 			rs.UnmarshalBinary(req.Data)
-			log.Printf("ipv6 req: %+v\n", rs)
+			log.Printf("%s ipv6 req: %+v\n", s.name, rs)
 			for _, addr := range s.metadata.Network.IP {
 				if addr.Family != "ipv6" {
 					continue
 				}
 				res := icmpv6.NewRouterAdvertisement(srcIP, net.IPv6linklocalallnodes, iface.HardwareAddr, addr.Address, addr.Prefix)
-				log.Printf("ipv6 res: %+v\n", res)
+				log.Printf("%s ipv6 res: %+v\n", s.name, res)
 				b, err := res.MarshalBinary()
 				if err != nil {
 					log.Printf(err.Error())

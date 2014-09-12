@@ -31,7 +31,7 @@ func main() {
 		if _, ok := servers[name[3:]]; !ok {
 			s := &Server{name: name[3:]}
 			servers[name[3:]] = s
-			log.Printf("start serving %s\n", name[3:])
+			log.Printf("%s start serving\n", name[3:])
 			go func() {
 				err := s.Start()
 				if err != nil {
@@ -72,9 +72,9 @@ func main() {
 									return err
 								}(err)
 								if err == nil {
-									log.Printf("start serving %s\n", name[3:])
+									log.Printf("%s start serving\n", name[3:])
 								} else {
-									log.Printf("failed serving %s %s\n", name[3:], err.Error())
+									log.Printf("%s failed serving %s\n", name[3:], err.Error())
 								}
 							}
 						}
@@ -92,16 +92,16 @@ func main() {
 						name := string(attr.Value[:len(attr.Value)-1])
 						if strings.HasPrefix(name, "tap") {
 							if s, ok := servers[name[3:]]; ok {
-								log.Printf("stop serving %s\n", name[3:])
+								log.Printf("%s stop serving\n", name[3:])
 								err = nil
 								go func(err error) error {
 									err = s.Stop()
 									return err
 								}(err)
 								if err == nil {
-									log.Printf("stop serving %s\n", name[3:])
+									log.Printf("%s stop serving\n", name[3:])
 								} else {
-									log.Printf("failed serving %s %s\n", name[3:], err.Error())
+									log.Printf("%s failed serving %s\n", name[3:], err.Error())
 								}
 								delete(servers, name[3:])
 							}
