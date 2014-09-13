@@ -505,7 +505,7 @@ func NewDHCPDiscover(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
-	d.ClientHWAddr = hwAddr
+	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
 	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_DISCOVER)}))
 	d.Options = append(d.Options, DHCPNewOption(DHCP_OPT_CLIENT_ID, hwAddr))
 	return
@@ -516,7 +516,7 @@ func NewDHCPOffer(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
-	d.ClientHWAddr = hwAddr
+	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
 	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_OFFER)}))
 	return
 }
@@ -526,7 +526,7 @@ func NewDHCPRequest(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
-	d.ClientHWAddr = hwAddr
+	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
 	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_REQUEST)}))
 	return
 }
@@ -536,7 +536,7 @@ func NewDHCPAck(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
-	d.ClientHWAddr = hwAddr
+	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
 	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_ACK)}))
 	return
 }
@@ -546,7 +546,7 @@ func NewDHCPNak(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
-	d.ClientHWAddr = hwAddr
+	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
 	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_NAK)}))
 	return
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -23,7 +24,6 @@ import (
 
 	"./dhcpv4"
 	"./icmpv6"
-	"./netlink"
 )
 
 type IP struct {
@@ -31,6 +31,8 @@ type IP struct {
 	Address string `xml:"address,attr"`
 	Prefix  string `xml:"prefix,attr,omitempty"`
 	Peer    string `xml:"peer,attr,omitempty"`
+	Host    string `xml:"host,attr,omitempty"`
+	Gateway string `xml:"gateway,attr,omitempty"`
 }
 
 type Storage struct {
@@ -165,18 +167,17 @@ func (s *Server) Start() error {
 	metaIP := cleanExists(s.name, s.metadata.Network.IP)
 
 	for _, addr := range metaIP {
-		if addr.Family != "ipv4" {
-			continue
-		}
-		// TODO: use netlink
-		if addr.Peer != "" {
-			cmd = exec.Command("ip", "-4", "a", "add", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
-		} else {
-			cmd = exec.Command("ip", "-4", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
-		}
-		err = cmd.Run()
-		if err != nil {
-			return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
+		if addr.Family == "ipv4" && addr.Host == "true" {
+			// TODO: use netlink
+			if addr.Peer != "" {
+				cmd = exec.Command("ip", "-4", "a", "add", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
+			} else {
+				cmd = exec.Command("ip", "-4", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
+			}
+			err = cmd.Run()
+			if err != nil {
+				return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
+			}
 		}
 	}
 
@@ -190,20 +191,19 @@ func (s *Server) Start() error {
 	go s.ListenAndServeIPv4()
 
 	for _, addr := range metaIP {
-		if addr.Family != "ipv6" {
-			continue
-		}
-		// TODO: use netlink
-		cmd := exec.Command("ip", "-6", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
-		err = cmd.Run()
-		if err != nil {
-			return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
-		}
+		if addr.Family == "ipv6" && addr.Host == "true" {
+			// TODO: use netlink
+			cmd := exec.Command("ip", "-6", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
+			err = cmd.Run()
+			if err != nil {
+				return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
+			}
 
-		cmd = exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
-		err = cmd.Run()
-		if err != nil {
-			return fmt.Errorf("Failed to replace route for: %s", addr.Address+"/"+addr.Prefix)
+			cmd = exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
+			err = cmd.Run()
+			if err != nil {
+				return fmt.Errorf("Failed to replace route for: %s", addr.Address+"/"+addr.Prefix)
+			}
 		}
 	}
 
@@ -251,26 +251,27 @@ func (s *Server) Stop() (err error) {
 	}
 
 	for _, addr := range s.metadata.Network.IP {
-		if addr.Family != "ipv6" {
-			continue
-		}
-		iface, err := net.InterfaceByName("tap" + s.name)
-		if err != nil {
-			return err
-		}
-		ip, net, err := net.ParseCIDR(addr.Address + "1/" + addr.Prefix)
-		if err != nil {
-			return err
-		}
-		err = netlink.NetworkLinkAddIp(iface, ip, net)
-		if err != nil {
-			return err
-		}
-		// TODO: use netlink
-		cmd := exec.Command("ip", "-6", "r", "del", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
-		err = cmd.Run()
-		if err != nil {
-			return err
+		if addr.Family == "ipv6" && addr.Host == "true" {
+			/*
+				iface, err := net.InterfaceByName("tap" + s.name)
+				if err != nil {
+					return err
+				}
+				ip, net, err := net.ParseCIDR(addr.Address + "1/" + addr.Prefix)
+				if err != nil {
+					return err
+				}
+				err = netlink.NetworkLinkAddIp(iface, ip, net)
+				if err != nil {
+					return err
+				}
+			*/
+			// TODO: use netlink
+			cmd := exec.Command("ip", "-6", "r", "del", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
+			err = cmd.Run()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -303,7 +304,7 @@ func bindToDevice2(conn *net.TCPListener, device string) error {
 
 func (s *Server) ListenAndServerHTTP() (err error) {
 	ipAddr := &net.TCPAddr{IP: net.ParseIP("169.254.169.254"), Port: 80}
-	conn, err := net.ListenTCP("tcp", ipAddr)
+	conn, err := net.ListenTCP("tcp4", ipAddr)
 	if err != nil {
 		return err
 	}
@@ -317,13 +318,13 @@ func (s *Server) ListenAndServerHTTP() (err error) {
 	//	http.Handle("/", s)
 
 	httpsrv := &http.Server{
-		Addr:           "169.254.169.254:80",
+		//		Addr:           "169.254.169.254:80",
 		Handler:        s,
 		ReadTimeout:    20 * time.Second,
 		WriteTimeout:   20 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	httpsrv.Serve(s.httpconn)
+	log.Printf("%s http %s", s.name, httpsrv.Serve(s.httpconn))
 	return nil
 }
 
@@ -422,7 +423,7 @@ func (s *Server) ListenAndServeIPv4() (err error) {
 
 		s.ipv4conn.SetReadDeadline(time.Now().Add(time.Second))
 
-		n, msg, src, err := s.ipv4conn.ReadFrom(buffer)
+		n, _, _, err := s.ipv4conn.ReadFrom(buffer)
 
 		if err != nil {
 			switch v := err.(type) {
@@ -443,10 +444,7 @@ func (s *Server) ListenAndServeIPv4() (err error) {
 			}
 		}
 
-		_ = n
-		_ = msg
-		_ = src
-		req := dhcpv4.DHCP{}
+		req := &dhcpv4.DHCP{}
 		req.Write(buffer[:n])
 		log.Printf("ipv4 req: %+v\n", req)
 		//if req.SIAddr().Equal(net.IPv4(0, 0, 0, 0)) || req.SIAddr().Equal(net.IP{}) {
@@ -455,11 +453,34 @@ func (s *Server) ListenAndServeIPv4() (err error) {
 			log.Printf("Error Serving DHCP: %s\n" + err.Error())
 			return err
 		}
+		if res == nil {
+			log.Printf("%s dhcpv4 nothing served\n", s.name)
+			continue
+		}
+		log.Printf("ipv4 res: %+v\n", res)
+		buf := make([]byte, res.Len())
+		if _, err := res.Read(buf); err != nil {
+			return err
+		}
 
-		log.Printf("ipv4: %+v\n", res)
-		var buf []byte
-		res.Read(buf)
-		_, err = s.ipv4conn.WriteTo(buf, msg, &net.UDPAddr{IP: net.IPv4bcast, Port: 68})
+		var gw net.IP
+		for _, addr := range s.metadata.Network.IP {
+			if addr.Family == "ipv4" && addr.Host == "false" {
+				if addr.Gateway == "true" {
+					gw = net.ParseIP(addr.Address)
+				}
+			}
+		}
+		iface, err := net.InterfaceByName("tap" + s.name)
+		if err != nil {
+			return err
+		}
+		wcm := ipv4.ControlMessage{TTL: 255}
+		wcm.Dst = net.IPv4bcast
+		wcm.Src = gw
+		wcm.IfIndex = iface.Index
+
+		_, err = s.ipv4conn.WriteTo(buf, &wcm, &net.UDPAddr{IP: wcm.Dst, Port: 68})
 		if err != nil {
 			log.Printf("Error Writing: %s\n" + err.Error())
 			return err
@@ -539,23 +560,23 @@ func (s *Server) ListenAndServeIPv6() (err error) {
 			rs.UnmarshalBinary(req.Data)
 			log.Printf("%s ipv6 req: %+v\n", s.name, rs)
 			for _, addr := range s.metadata.Network.IP {
-				if addr.Family != "ipv6" {
-					continue
-				}
-				res := icmpv6.NewRouterAdvertisement(srcIP, net.IPv6linklocalallnodes, iface.HardwareAddr, addr.Address, addr.Prefix)
-				log.Printf("%s ipv6 res: %+v\n", s.name, res)
-				b, err := res.MarshalBinary()
-				if err != nil {
-					log.Printf(err.Error())
-					continue
-				}
-				wcm := ipv6.ControlMessage{HopLimit: 255}
-				wcm.Dst = net.IPv6linklocalallnodes
-				wcm.IfIndex = iface.Index
-				_, err = s.ipv6conn.WriteTo(b, &wcm, src)
-				if err != nil {
-					log.Printf(err.Error())
-					continue
+				// TODO fix ipv6 addr
+				if addr.Family == "ipv6" && addr.Host == "true" {
+					res := icmpv6.NewRouterAdvertisement(srcIP, net.IPv6linklocalallnodes, iface.HardwareAddr, addr.Address, addr.Prefix)
+					log.Printf("%s ipv6 res: %+v\n", s.name, res)
+					b, err := res.MarshalBinary()
+					if err != nil {
+						log.Printf(err.Error())
+						continue
+					}
+					wcm := ipv6.ControlMessage{HopLimit: 255}
+					wcm.Dst = net.IPv6linklocalallnodes
+					wcm.IfIndex = iface.Index
+					_, err = s.ipv6conn.WriteTo(b, &wcm, src)
+					if err != nil {
+						log.Printf(err.Error())
+						continue
+					}
 				}
 			}
 		}
@@ -564,6 +585,100 @@ func (s *Server) ListenAndServeIPv6() (err error) {
 	return nil
 }
 
-func (s *Server) ServeDHCP(req dhcpv4.DHCP) (res dhcpv4.DHCP, err error) {
-	return
+func (s *Server) ServeDHCP(req *dhcpv4.DHCP) (*dhcpv4.DHCP, error) {
+	leaseTime := 6000
+	var ip net.IP
+	var gw net.IP
+	var mac net.HardwareAddr
+	var ipnet *net.IPNet
+	var err error
+	mac = req.ClientHWAddr
+
+	for _, addr := range s.metadata.Network.IP {
+		if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" {
+			gw = net.ParseIP(addr.Address)
+		}
+		if addr.Family == "ipv4" && addr.Host == "false" {
+			ip, ipnet, err = net.ParseCIDR(addr.Address + "/" + addr.Prefix)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if ipnet == nil || ipnet.Mask == nil {
+		return nil, fmt.Errorf("failed to get ipnet")
+	}
+
+	if req == nil || req.Options == nil {
+		return nil, nil
+	}
+
+	opt := req.Options[0]
+	switch opt.OptionType() {
+	case dhcpv4.DHCP_OPT_MESSAGE_TYPE:
+		switch dhcpv4.DHCPOperation(opt.Bytes()[0]) {
+		case dhcpv4.DHCPOperation(dhcpv4.DHCP_MSG_DISCOVER):
+			log.Printf("offer\n")
+			res, err := dhcpv4.NewDHCPOffer(req.Xid, mac)
+			if err != nil {
+				return nil, err
+			}
+			copy(res.YourIP, ip.To4())
+			copy(res.ServerIP, gw.To4())
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(1, []byte(net.IP(ipnet.Mask).To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(3, []byte(gw.To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
+			req.Options = append(req.Options, dhcpv4.DHCPNewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(15, []byte("simplecloud.club")))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(12, []byte(s.name)))
+			var b [8]byte
+			var bs []byte
+			bs = b[:4]
+			binary.BigEndian.PutUint32(bs, uint32(leaseTime))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(51, bs))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(54, []byte(gw.To4())))
+			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*50))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_T1, bs))
+			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*88))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_T2, bs))
+			bs = b[:2]
+			binary.BigEndian.PutUint16(bs, uint16(1500))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_INTERFACE_MTU, bs))
+			return res, nil
+		case dhcpv4.DHCPOperation(dhcpv4.DHCP_MSG_REQUEST):
+			log.Printf("ack\n")
+			res, err := dhcpv4.NewDHCPAck(req.Xid, mac)
+			if err != nil {
+				return nil, err
+			}
+			copy(res.YourIP, ip.To4())
+			copy(res.ServerIP, gw.To4())
+			var b [8]byte
+			var bs []byte
+			bs = b[:4]
+			binary.BigEndian.PutUint32(bs, uint32(leaseTime))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(51, bs))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(1, []byte(net.IP(ipnet.Mask).To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(3, []byte(gw.To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
+			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*50))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_T1, bs))
+			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*88))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_T2, bs))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(15, []byte("simplecloud.club")))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(12, []byte(s.name)))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(54, []byte(gw.To4())))
+			bs = b[:2]
+			binary.BigEndian.PutUint16(bs, uint16(1500))
+			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_INTERFACE_MTU, bs))
+			return res, nil
+		default:
+			log.Printf("unk %d\n", dhcpv4.DHCPOperation(opt.Bytes()[0]))
+		}
+
+	}
+	return nil, fmt.Errorf("strange dhcpv4 error")
 }
