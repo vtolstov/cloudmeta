@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"path"
 	"reflect"
 	"strings"
 	"syscall"
@@ -303,7 +304,7 @@ func bindToDevice2(conn *net.TCPListener, device string) error {
 }
 
 func (s *Server) ListenAndServerHTTP() (err error) {
-	ipAddr := &net.TCPAddr{IP: net.ParseIP("169.254.169.254"), Port: 80}
+	ipAddr := &net.TCPAddr{IP: net.IPv4zero, Port: 80}
 	conn, err := net.ListenTCP("tcp4", ipAddr)
 	if err != nil {
 		return err
@@ -351,6 +352,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	addrs, err := net.LookupIP(host)
 	if err != nil {
+		log.Printf("%s http err: %s\n", s.name, err.Error())
 		w.WriteHeader(503)
 		return
 	}
@@ -362,11 +364,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-
-	switch r.URL.String() {
+	uri := path.Clean(r.URL.String())
+	switch uri {
 	case "/":
 		w.Write([]byte("2009-04-04\nlatest\n"))
-	case "/2009-04-04/meta-data/", "/latest/meta-data/":
+	case "/2009-04-04/meta-data", "/latest/meta-data":
 		w.Write([]byte("public-hostname\nhostname\nlocal-hostname\ninstance-id\npublic-ipv4\npublic-keys\n"))
 	case "/2009-04-04/meta-data/public-hostname", "/2009-04-04/meta-data/hostname", "/2009-04-04/meta-data/local-hostname", "/latest/meta-data/public-hostname", "/latest/meta-data/hostname", "/latest/meta-data/local-hostname":
 		w.Write([]byte(s.name + ".simplecloud.club\n"))
@@ -388,12 +390,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer res.Body.Close()
 		}
 		if res == nil && err != nil {
-			log.Printf("%s\n", err.Error())
+			log.Printf("%s http err: %s\n", s.name, err.Error())
 			w.WriteHeader(503)
 			return
 		}
 		io.Copy(w, res.Body)
-		return
 	default:
 		log.Printf("http: %+v\n", r)
 		w.WriteHeader(503)
