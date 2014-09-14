@@ -28,6 +28,12 @@ const (
 	DHCP_MSG_INFORM
 )
 
+const (
+	_ = iota
+	DHCP_MSG_REQ
+	DHCP_MSG_RES
+)
+
 var dhcpMagic uint32 = 0x63825363
 
 type DHCP struct {
@@ -501,7 +507,7 @@ func DHCPParseOptions(in []byte) (opts []DHCPOption, err error) {
 }
 
 func NewDHCPDiscover(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_DISCOVER, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_REQ, DHCP_HW_ETHERNET); err != nil {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
@@ -512,7 +518,7 @@ func NewDHCPDiscover(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 }
 
 func NewDHCPOffer(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_OFFER, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_RES, DHCP_HW_ETHERNET); err != nil {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
@@ -522,7 +528,7 @@ func NewDHCPOffer(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 }
 
 func NewDHCPRequest(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_REQUEST, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_REQ, DHCP_HW_ETHERNET); err != nil {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
@@ -532,7 +538,7 @@ func NewDHCPRequest(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 }
 
 func NewDHCPAck(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_ACK, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_RES, DHCP_HW_ETHERNET); err != nil {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))
@@ -542,7 +548,7 @@ func NewDHCPAck(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
 }
 
 func NewDHCPNak(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_NAK, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_RES, DHCP_HW_ETHERNET); err != nil {
 		return
 	}
 	d.HardwareLen = uint8(len(hwAddr))

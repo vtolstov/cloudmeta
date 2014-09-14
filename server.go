@@ -447,7 +447,7 @@ func (s *Server) ListenAndServeIPv4() (err error) {
 
 		req := &dhcpv4.DHCP{}
 		req.Write(buffer[:n])
-		log.Printf("ipv4 req: %+v\n", req)
+		log.Printf("%s dhcpv4 req: %+v\n", s.name, req)
 		//if req.SIAddr().Equal(net.IPv4(0, 0, 0, 0)) || req.SIAddr().Equal(net.IP{}) {
 		res, err := s.ServeDHCP(req)
 		if err != nil {
@@ -458,7 +458,7 @@ func (s *Server) ListenAndServeIPv4() (err error) {
 			log.Printf("%s dhcpv4 nothing served\n", s.name)
 			continue
 		}
-		log.Printf("ipv4 res: %+v\n", res)
+		log.Printf("%s dhcpv4 res: %+v\n", s.name, res)
 		buf := make([]byte, res.Len())
 		if _, err := res.Read(buf); err != nil {
 			return err
@@ -619,7 +619,6 @@ func (s *Server) ServeDHCP(req *dhcpv4.DHCP) (*dhcpv4.DHCP, error) {
 	case dhcpv4.DHCP_OPT_MESSAGE_TYPE:
 		switch dhcpv4.DHCPOperation(opt.Bytes()[0]) {
 		case dhcpv4.DHCPOperation(dhcpv4.DHCP_MSG_DISCOVER):
-			log.Printf("offer\n")
 			res, err := dhcpv4.NewDHCPOffer(req.Xid, mac)
 			if err != nil {
 				return nil, err
@@ -648,7 +647,6 @@ func (s *Server) ServeDHCP(req *dhcpv4.DHCP) (*dhcpv4.DHCP, error) {
 			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_INTERFACE_MTU, bs))
 			return res, nil
 		case dhcpv4.DHCPOperation(dhcpv4.DHCP_MSG_REQUEST):
-			log.Printf("ack\n")
 			res, err := dhcpv4.NewDHCPAck(req.Xid, mac)
 			if err != nil {
 				return nil, err
