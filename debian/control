@@ -2,7 +2,7 @@ Source: svirtnet
 Section: devel
 Priority: extra
 Maintainer: Vasiliy Tolstov <v.tolstov@selfip.ru>
-Build-Depends: debhelper (>= 9), git-core, mercurial, ca-certificates, wget
+Build-Depends: debhelper (>= 9), git-core, mercurial, ca-certificates, wget, libvirt-dev
 Standards-Version: 3.9.4
 Homepage: https://gitlab.clodo.ru/packages/package-svirtnet
 Vcs-Git: http://gitlab.clodo.ru/packages/package-svirtnet.git
