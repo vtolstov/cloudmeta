@@ -72,9 +72,9 @@ func main() {
 									return err
 								}(err)
 								if err == nil {
-									log.Printf("%s start serving\n", name[3:])
+									s.LogInfo("%s start serving\n", name[3:])
 								} else {
-									log.Printf("%s failed serving %s\n", name[3:], err.Error())
+									s.LogError("%s failed serving %s\n", name[3:], err.Error())
 								}
 							}
 						}
@@ -92,16 +92,15 @@ func main() {
 						name := string(attr.Value[:len(attr.Value)-1])
 						if strings.HasPrefix(name, "tap") {
 							if s, ok := servers[name[3:]]; ok {
-								log.Printf("%s stop serving\n", name[3:])
 								err = nil
 								go func(err error) error {
 									err = s.Stop()
 									return err
 								}(err)
 								if err == nil {
-									log.Printf("%s stop serving\n", name[3:])
+									s.LogInfo("%s stop serving\n", name[3:])
 								} else {
-									log.Printf("%s failed serving %s\n", name[3:], err.Error())
+									s.LogError("%s failed serving %s\n", name[3:], err.Error())
 								}
 								delete(servers, name[3:])
 							}

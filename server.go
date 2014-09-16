@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/syslog"
 	"net"
 	"net/http"
 	"net/url"
@@ -54,7 +55,26 @@ type Metadata struct {
 	CloudConfig CloudConfig `xml:"cloud-config"`
 }
 
+func (s *Server) LogInfo(format string, v ...interface{}) {
+	s.log.Printf(format, v)
+}
+
+func (s *Server) LogError(format string, v ...interface{}) {
+	s.log.Printf(format, v)
+}
+
+func (s *Server) LogDebug(format string, v ...interface{}) {
+	s.log.Printf(format, v)
+}
+
+func (s *Server) LogWarn(format string, v ...interface{}) {
+	s.log.Printf(format, v)
+}
+
 type Server struct {
+	// server logger
+	log *log.Logger
+
 	// shutdown flag
 	shutdown bool
 
@@ -119,6 +139,11 @@ func (s *Server) Start() error {
 	var buf string
 	var err error
 	var domain libvirt.VirDomain
+
+	s.log, err = syslog.NewLogger(syslog.LOG_INFO|syslog.LOG_USER, log.Lshortfile)
+	if err != nil {
+		return err
+	}
 
 	if s == nil || s.name == "" {
 		return errors.New("invalid server config")
@@ -188,7 +213,7 @@ func (s *Server) Start() error {
 		return fmt.Errorf("Failed to enable proxy_arp: %s sysctl -w net.ipv4.conf.tap%s.proxy_arp=1", aa, s.name)
 	}
 
-	log.Printf("%s ListenAndServeIPv4\n", s.name)
+	s.LogInfo("%s ListenAndServeIPv4\n", s.name)
 	go s.ListenAndServeIPv4()
 
 	for _, addr := range metaIP {
@@ -208,14 +233,13 @@ func (s *Server) Start() error {
 		}
 	}
 
-	log.Printf("%s ListenAndServeIPv6\n", s.name)
+	s.LogInfo("%s ListenAndServeIPv6\n", s.name)
 	go s.ListenAndServeIPv6()
 
-	log.Printf("%s ListenAndServerHTTP\n", s.name)
+	s.LogInfo("%s ListenAndServerHTTP\n", s.name)
 	go s.ListenAndServerHTTP()
 
 	select {}
-	return nil
 }
 
 func (s *Server) Stop() (err error) {
@@ -325,12 +349,12 @@ func (s *Server) ListenAndServerHTTP() (err error) {
 		WriteTimeout:   20 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	log.Printf("%s http %s", s.name, httpsrv.Serve(s.httpconn))
+	s.LogInfo("%s http %s", s.name, httpsrv.Serve(s.httpconn))
 	return nil
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL)
+	s.LogInfo("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL)
 
 	var res *http.Response
 	var host string
@@ -352,7 +376,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	addrs, err := net.LookupIP(host)
 	if err != nil {
-		log.Printf("%s http err: %s\n", s.name, err.Error())
+		s.LogInfo("%s http err: %s\n", s.name, err.Error())
 		w.WriteHeader(503)
 		return
 	}
@@ -390,13 +414,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer res.Body.Close()
 		}
 		if res == nil && err != nil {
-			log.Printf("%s http err: %s\n", s.name, err.Error())
+			s.LogInfo("%s http err: %s\n", s.name, err.Error())
 			w.WriteHeader(503)
 			return
 		}
 		io.Copy(w, res.Body)
 	default:
-		log.Printf("http: %+v\n", r)
+		s.LogInfo("http: %+v\n", r)
 		w.WriteHeader(503)
 	}
 	return
@@ -447,18 +471,18 @@ func (s *Server) ListenAndServeIPv4() (err error) {
 
 		req := &dhcpv4.DHCP{}
 		req.Write(buffer[:n])
-		log.Printf("%s dhcpv4 req: %+v\n", s.name, req)
+		s.LogInfo("%s dhcpv4 req: %+v\n", s.name, req)
 		//if req.SIAddr().Equal(net.IPv4(0, 0, 0, 0)) || req.SIAddr().Equal(net.IP{}) {
 		res, err := s.ServeDHCP(req)
 		if err != nil {
-			log.Printf("Error Serving DHCP: %s\n" + err.Error())
+			s.LogInfo("Error Serving DHCP: %s\n" + err.Error())
 			return err
 		}
 		if res == nil {
-			log.Printf("%s dhcpv4 nothing served\n", s.name)
+			s.LogInfo("%s dhcpv4 nothing served\n", s.name)
 			continue
 		}
-		log.Printf("%s dhcpv4 res: %+v\n", s.name, res)
+		s.LogInfo("%s dhcpv4 res: %+v\n", s.name, res)
 		buf := make([]byte, res.Len())
 		if _, err := res.Read(buf); err != nil {
 			return err
@@ -483,13 +507,12 @@ func (s *Server) ListenAndServeIPv4() (err error) {
 
 		_, err = s.ipv4conn.WriteTo(buf, &wcm, &net.UDPAddr{IP: wcm.Dst, Port: 68})
 		if err != nil {
-			log.Printf("Error Writing: %s\n" + err.Error())
+			s.LogInfo("Error Writing: %s\n" + err.Error())
 			return err
 		}
 		//		}
 
 	}
-	return nil
 }
 
 func (s *Server) ListenAndServeIPv6() (err error) {
@@ -529,12 +552,12 @@ func (s *Server) ListenAndServeIPv6() (err error) {
 		srcIP := dstIP
 		iface, err := net.InterfaceByName(device)
 		if err != nil {
-			log.Printf("can't find iface %s: %s\n", device, err.Error())
+			s.LogInfo("can't find iface %s: %s\n", device, err.Error())
 			continue
 		}
 		addrs, err := iface.Addrs()
 		if err != nil {
-			log.Printf("can't get addresses from %s: %s\n", iface.Name, err.Error())
+			s.LogInfo("can't get addresses from %s: %s\n", iface.Name, err.Error())
 			continue
 		}
 
@@ -552,22 +575,22 @@ func (s *Server) ListenAndServeIPv6() (err error) {
 		req := &icmpv6.ICMPv6{}
 		err = req.UnmarshalBinary(buffer)
 		if err != nil {
-			log.Printf(err.Error())
+			s.LogInfo(err.Error())
 			continue
 		}
 		switch req.ICMPType() {
 		case ipv6.ICMPTypeRouterSolicitation:
 			rs := &icmpv6.RouterSolicitation{}
 			rs.UnmarshalBinary(req.Data)
-			log.Printf("%s ipv6 req: %+v\n", s.name, rs)
+			s.LogInfo("%s ipv6 req: %+v\n", s.name, rs)
 			for _, addr := range s.metadata.Network.IP {
 				// TODO fix ipv6 addr
 				if addr.Family == "ipv6" && addr.Host == "true" {
 					res := icmpv6.NewRouterAdvertisement(srcIP, net.IPv6linklocalallnodes, iface.HardwareAddr, addr.Address, addr.Prefix)
-					log.Printf("%s ipv6 res: %+v\n", s.name, res)
+					s.LogInfo("%s ipv6 res: %+v\n", s.name, res)
 					b, err := res.MarshalBinary()
 					if err != nil {
-						log.Printf(err.Error())
+						s.LogInfo(err.Error())
 						continue
 					}
 					wcm := ipv6.ControlMessage{HopLimit: 255}
@@ -575,15 +598,13 @@ func (s *Server) ListenAndServeIPv6() (err error) {
 					wcm.IfIndex = iface.Index
 					_, err = s.ipv6conn.WriteTo(b, &wcm, src)
 					if err != nil {
-						log.Printf(err.Error())
+						s.LogInfo(err.Error())
 						continue
 					}
 				}
 			}
 		}
 	}
-
-	return nil
 }
 
 func (s *Server) ServeDHCP(req *dhcpv4.DHCP) (*dhcpv4.DHCP, error) {
@@ -675,7 +696,7 @@ func (s *Server) ServeDHCP(req *dhcpv4.DHCP) (*dhcpv4.DHCP, error) {
 			res.Options = append(res.Options, dhcpv4.DHCPNewOption(dhcpv4.DHCP_OPT_INTERFACE_MTU, bs))
 			return res, nil
 		default:
-			log.Printf("unk %d\n", dhcpv4.DHCPOperation(opt.Bytes()[0]))
+			s.LogInfo("unk %d\n", dhcpv4.DHCPOperation(opt.Bytes()[0]))
 		}
 
 	}
