@@ -15,10 +15,12 @@ override_dh_clean:
 	rm -rf third_party/
 
 override_dh_install:
+	wget https://storage.googleapis.com/golang/go1.3.1.linux-amd64.tar.gz -O go.tar.gz
+	tar -zxf go.tar.gz
 	mkdir -p third_party/src/code.google.com/p/ third_party/src/github.com/alexzorin/
 	hg clone --insecure -r 127da548775d https://code.google.com/p/go.net/ $(PWD)/third_party/src/code.google.com/p/go.net
 	git clone https://github.com/alexzorin/libvirt-go $(PWD)/third_party/src/github.com/alexzorin/libvirt-go
-	GOPATH=$(PWD)/third_party/ go build -a -x -o vncproxy
+	GOPATH=$(PWD)/third_party/ ./bin/go build -a -x -o vncproxy
 	dh_install
 
 %:
