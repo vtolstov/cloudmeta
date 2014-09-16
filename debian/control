@@ -1,0 +1,17 @@
+Source: vncproxy
+Section: devel
+Priority: extra
+Maintainer: Vasiliy Tolstov <v.tolstov@selfip.ru>
+Build-Depends: debhelper (>= 9), git-core, golang (>= 1.0), mercurial
+Standards-Version: 3.9.4
+Homepage: https://gitlab.clodo.ru/packages/package-vncproxy
+Vcs-Git: http://gitlab.clodo.ru/packages/package-vncproxy.git
+Vcs-Browser: https://gitlab.clodo.ru/packages/package-vncproxy
+
+Package: vncproxy
+Architecture: any
+Depends: ${misc:Depends}
+Description: websocket vnc proxy written in golang.
+ Vncproxy is the websocket proxy server written in golang.
+
+

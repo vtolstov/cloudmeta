@@ -1,0 +1,52 @@
+#!/bin/sh
+# Start/stop the svirtnet daemon.
+#
+### BEGIN INIT INFO
+# Provides:          svirtnet
+# Required-Start:    $remote_fs $syslog $time
+# Required-Stop:     $remote_fs $syslog $time
+# Should-Start:      $network $named slapd autofs ypbind nscd nslcd
+# Should-Stop:       $network $named slapd autofs ypbind nscd nslcd
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: simple virt-net
+# Description:       svirtnet provide ipv4 dhcp ipv6 ra and http server for vm
+### END INIT INFO
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DESC="svirtnet daemon"
+NAME=svirtnet
+DAEMON=/usr/bin/svirtnet
+PIDFILE=/var/run/svirtnet.pid
+SCRIPTNAME=/etc/init.d/"$NAME"
+
+test -f $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+[ -r /etc/default/svirtnet ] && . /etc/default/svirtnet
+
+case "$1" in
+start)  log_daemon_msg "Starting $DESC" "${NAME}"
+        start-stop-daemon --start --pidfile $PIDFILE --quiet --name $NAME --exec $DAEMON --test > /dev/null || return 1
+        start-stop-daemon --start --pidfile $PIDFILE --quiet --background --make-pidfile --name $NAME --exec $DAEMON -- $SVIRTNET_OPTS || return 2
+        log_end_msg $?
+        ;;
+stop)   log_daemon_msg "Stopping $DESC" "${NAME}"
+        killproc -p $PIDFILE $DAEMON
+        RETVAL=$?
+        [ $RETVAL -eq 0 ] && [ -e "$PIDFILE" ] && rm -f $PIDFILE
+        log_end_msg $RETVAL
+        ;;
+restart) log_daemon_msg "Restarting $DESC" "${NAME}"
+        $0 stop
+        $0 start
+        ;;
+status)
+        status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+        ;;
+*)      log_action_msg "Usage: /etc/init.d/${NAME} {start|stop|status|restart}"
+        exit 2
+        ;;
+esac
+exit 0

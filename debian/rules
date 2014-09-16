@@ -1,0 +1,26 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+PWD = $(shell pwd)
+
+override_dh_clean:
+	dh_clean
+	rm -rf third_party/
+
+override_dh_install:
+	mkdir -p third_party/src/code.google.com/p/ third_party/src/github.com/alexzorin/
+	hg clone --insecure -r 127da548775d https://code.google.com/p/go.net/ $(PWD)/third_party/src/code.google.com/p/go.net
+	git clone https://github.com/alexzorin/libvirt-go $(PWD)/third_party/src/github.com/alexzorin/libvirt-go
+	GOPATH=$(PWD)/third_party/ go build -a -x -o vncproxy
+	dh_install
+
+%:
+	dh $@
+
