@@ -5,15 +5,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 )
 
-const (
-	DHCP_MSG_BOOT_REQ byte = iota
-	DHCP_MSG_BOOT_RES
-)
+var opTypes = [3]string{
+	0: "UNSPEC",
+	1: "REQUEST",
+	2: "RESPONSE",
+}
 
 type Operation uint8
 
@@ -28,6 +28,22 @@ const (
 	DHCP_MSG_RELEASE
 	DHCP_MSG_INFORM
 )
+
+var messageTypes = map[Operation]string{
+	0: "UNSPEC",
+	1: "DISCOVER",
+	2: "OFFER",
+	3: "REQUEST",
+	4: "DECLINE",
+	5: "ACK",
+	6: "NAK",
+	7: "RELEASE",
+	8: "INFORM",
+}
+
+func (o Operation) String() string {
+	return opTypes[o]
+}
 
 const (
 	_ = iota
@@ -112,6 +128,21 @@ func (p *DHCP) Len() uint16 {
 	}
 	n += 1 // for opt end
 	return n
+}
+
+func (p *DHCP) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	pFile := string(p.File)
+	if pFile == "" {
+		pFile = "<nil>"
+	}
+	pServerName := string(p.ServerName)
+	if pServerName == "" {
+		pServerName = "<nil>"
+	}
+	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, sname: %v, file: %v, options: %v", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, p.ClientIP, p.YourIP, p.ServerIP, p.GatewayIP, p.ClientHWAddr, pServerName, pFile, p.Options)
 }
 
 func (p *DHCP) SetBroadcast(broadcast bool) {
@@ -344,6 +375,10 @@ type Option struct {
 	Data   []byte
 }
 
+func (o Option) String() string {
+	return fmt.Sprintf("Option(%v:%v)", DHCPOptionTypeStrings[o.Type], o.Data)
+}
+
 func NewOption(t uint8, data []byte) Option {
 	o := Option{Type: t}
 	if data != nil {
@@ -370,7 +405,6 @@ func (o *Option) Marshal() ([]byte, error) {
 }
 
 func (o *Option) Unmarshal(data []byte) error {
-	log.Printf("DDDD %+v\n", data)
 	o.Type = data[0]
 	switch o.Type {
 	case DHCP_OPT_PAD, DHCP_OPT_END:
@@ -386,48 +420,47 @@ func (o *Option) Unmarshal(data []byte) error {
 	return nil
 }
 
-func NewDHCPDiscover(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_REQ, HW_TYPE_ETHERNET); err != nil {
-		return
+func NewDHCPDiscover(xid uint32) (*DHCP, error) {
+	p, err := NewDHCP(xid, DHCP_MSG_REQ, HW_TYPE_ETHERNET)
+	if err != nil {
+		return nil, err
 	}
-	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_DISCOVER)}})
-	d.Options = append(d.Options, Option{Type: DHCP_OPT_CLIENT_ID, Data: hwAddr})
-	return
+	p.Options = append(p.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_DISCOVER)}})
+	return p, nil
 }
 
-func NewDHCPOffer(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET); err != nil {
-		return
+func NewDHCPOffer(xid uint32) (*DHCP, error) {
+	p, err := NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET)
+	if err != nil {
+		return nil, err
 	}
-	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, NewOption(53, []byte{byte(DHCP_MSG_OFFER)}))
-	return
+	p.Options = append(p.Options, NewOption(53, []byte{byte(DHCP_MSG_OFFER)}))
+	return p, nil
 }
 
-func NewDHCPRequest(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_REQ, HW_TYPE_ETHERNET); err != nil {
-		return
+func NewDHCPRequest(xid uint32) (*DHCP, error) {
+	p, err := NewDHCP(xid, DHCP_MSG_REQ, HW_TYPE_ETHERNET)
+	if err != nil {
+		return nil, err
 	}
-	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_REQUEST)}})
-	return
+	p.Options = append(p.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_REQUEST)}})
+	return p, nil
 }
 
-func NewDHCPAck(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET); err != nil {
-		return
+func NewDHCPAck(xid uint32) (*DHCP, error) {
+	p, err := NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET)
+	if err != nil {
+		return nil, err
 	}
-	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, NewOption(53, []byte{byte(DHCP_MSG_ACK)}))
-	return
+	p.Options = append(p.Options, NewOption(53, []byte{byte(DHCP_MSG_ACK)}))
+	return p, nil
 }
 
-func NewDHCPNak(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET); err != nil {
-		return
+func NewDHCPNak(xid uint32) (*DHCP, error) {
+	p, err := NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET)
+	if err != nil {
+		return nil, err
 	}
-	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_NAK)}})
-	return
+	p.Options = append(p.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_NAK)}})
+	return p, nil
 }

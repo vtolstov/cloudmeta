@@ -172,10 +172,11 @@ func (s *Server) ServeUDPv4(req *udp.UDP) (*udp.UDP, error) {
 	case dhcpv4.DHCP_OPT_MESSAGE_TYPE:
 		switch dhcpv4.Operation(opt.Data[0]) {
 		case dhcpv4.Operation(dhcpv4.DHCP_MSG_DISCOVER):
-			dhcpres, err = dhcpv4.NewDHCPOffer(dhcpreq.Xid, mac)
+			dhcpres, err = dhcpv4.NewDHCPOffer(dhcpreq.Xid)
 			if err != nil {
 				return nil, err
 			}
+			copy(dhcpres.ClientHWAddr, mac[:dhcpres.HardwareLen])
 			copy(dhcpres.YourIP, ip.To4())
 			copy(dhcpres.ServerIP, gw.To4())
 			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
@@ -199,10 +200,11 @@ func (s *Server) ServeUDPv4(req *udp.UDP) (*udp.UDP, error) {
 			binary.BigEndian.PutUint16(bs, uint16(1500))
 			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(dhcpv4.DHCP_OPT_INTERFACE_MTU, bs))
 		case dhcpv4.Operation(dhcpv4.DHCP_MSG_REQUEST):
-			dhcpres, err = dhcpv4.NewDHCPAck(dhcpreq.Xid, mac)
+			dhcpres, err = dhcpv4.NewDHCPAck(dhcpreq.Xid)
 			if err != nil {
 				return nil, err
 			}
+			copy(dhcpres.ClientHWAddr, mac[:dhcpres.HardwareLen])
 			copy(dhcpres.YourIP, ip.To4())
 			copy(dhcpres.ServerIP, gw.To4())
 			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
