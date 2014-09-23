@@ -48,7 +48,7 @@ type Metadata struct {
 	CloudConfig CloudConfig `xml:"cloud-config"`
 }
 
-var httpconn *net.TCPConn
+var httpconn net.Listener
 
 type Server struct {
 	// shutdown flag

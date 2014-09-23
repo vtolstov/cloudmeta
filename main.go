@@ -39,8 +39,8 @@ func main() {
 		}
 	}
 
-	//	glog.Info("ListenAndServeTCPv4")
-	//	go ListenAndServeTCPv4()
+	glog.Info("ListenAndServeTCPv4")
+	go ListenAndServeTCPv4()
 
 	for {
 		msgs, err := nl.Receive()

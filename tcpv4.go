@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -11,18 +13,36 @@ import (
 	"github.com/golang/glog"
 )
 
+func getServerByIP(ip string) (*Server, error) {
+	for _, s := range servers {
+		for _, addr := range s.metadata.Network.IP {
+			if addr.Gateway == "false" {
+				if addr.Address == ip {
+					return s, nil
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("failed to get Server by IP")
+}
+
 func ListenAndServeTCPv4() {
 	ipAddr := &net.TCPAddr{IP: net.IPv4zero, Port: 80}
-	conn, err := net.ListenIP("tcp4", ipAddr)
+	conn, err := net.Listen("tcp", ipAddr.String())
 	if err != nil {
 		glog.Errorf(err.Error())
 		return
 	}
 
 	httpconn = conn
+
+	r := http.NewServeMux()
+	r.HandleFunc("/", ServeHTTP)
+	http.Handle("/", r)
+
 	s := &http.Server{
 		Addr:           ":80",
-		Handler:        nil,
+		Handler:        r,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -31,12 +51,20 @@ func ListenAndServeTCPv4() {
 
 }
 
-func ServeHTTP(r *http.HTTP) {
+func ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var host string
+	var port string
+
+	host, _, _ = net.SplitHostPort(r.RemoteAddr)
+	s, err := getServerByIP(host)
+	if err != nil {
+		glog.Infof("%+v\n", r)
+		w.WriteHeader(503)
+		return
+	}
 	glog.Infof("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL)
 
 	var res *http.Response
-	var host string
-	var port string
 
 	u, _ := url.Parse(s.metadata.CloudConfig.URL)
 	if strings.Index(u.Host, ":") > 0 {
