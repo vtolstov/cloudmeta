@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"io"
+	"fmt"
+	"log"
 	"math/rand"
 	"net"
 )
@@ -14,10 +15,10 @@ const (
 	DHCP_MSG_BOOT_RES
 )
 
-type DHCPOperation byte
+type Operation uint8
 
 const (
-	DHCP_MSG_UNSPEC DHCPOperation = iota
+	DHCP_MSG_UNSPEC Operation = iota
 	DHCP_MSG_DISCOVER
 	DHCP_MSG_OFFER
 	DHCP_MSG_REQUEST
@@ -37,7 +38,7 @@ const (
 var dhcpMagic uint32 = 0x63825363
 
 type DHCP struct {
-	Operation    DHCPOperation
+	Operation    Operation
 	HardwareType byte
 	HardwareLen  uint8
 	HardwareOpts uint8
@@ -49,9 +50,9 @@ type DHCP struct {
 	ServerIP     net.IP
 	GatewayIP    net.IP
 	ClientHWAddr net.HardwareAddr
-	ServerName   [64]byte
-	File         [128]byte
-	Options      []DHCPOption
+	ServerName   []byte
+	File         []byte
+	Options      []Option
 }
 
 const (
@@ -71,21 +72,21 @@ const (
 )
 
 const (
-	DHCP_HW_ETHERNET byte = 0x01
+	HW_TYPE_ETHERNET byte = 0x01
 )
 
 const (
-	DHCP_FLAG_BROADCAST uint16 = 0x80
+	FLAG_BROADCAST uint16 = 0x80
 
 //	FLAG_BROADCAST_MASK uint16 = (1 << FLAG_BROADCAST)
 )
 
-func NewDHCP(xid uint32, op DHCPOperation, hwtype byte) (*DHCP, error) {
+func NewDHCP(xid uint32, op Operation, hwtype byte) (*DHCP, error) {
 	if xid == 0 {
 		xid = rand.Uint32()
 	}
 	switch hwtype {
-	case DHCP_HW_ETHERNET:
+	case HW_TYPE_ETHERNET:
 		break
 	default:
 		return nil, errors.New("Bad HardwareType")
@@ -93,6 +94,7 @@ func NewDHCP(xid uint32, op DHCPOperation, hwtype byte) (*DHCP, error) {
 	d := &DHCP{
 		Operation:    op,
 		HardwareType: hwtype,
+		HardwareLen:  6,
 		Xid:          xid,
 		ClientIP:     make([]byte, 4),
 		YourIP:       make([]byte, 4),
@@ -103,172 +105,111 @@ func NewDHCP(xid uint32, op DHCPOperation, hwtype byte) (*DHCP, error) {
 	return d, nil
 }
 
-func (d *DHCP) Len() (n uint16) {
-	n += uint16(240)
-	optend := false
-	for _, opt := range d.Options {
-		n += opt.Len()
-		if opt.OptionType() == DHCP_OPT_END {
-			optend = true
-		}
+func (p *DHCP) Len() uint16 {
+	n := uint16(240)
+	for _, o := range p.Options {
+		n += uint16(o.Length) + 2
 	}
-	if !optend {
-		n += 1
-	}
-	return
+	n += 1 // for opt end
+	return n
 }
 
-func (d *DHCP) Read(b []byte) (n int, err error) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, d.Operation)
-	n += 1
-	binary.Write(buf, binary.BigEndian, d.HardwareType)
-	n += 1
-	binary.Write(buf, binary.BigEndian, d.HardwareLen)
-	n += 1
-	binary.Write(buf, binary.BigEndian, d.HardwareOpts)
-	n += 1
-	binary.Write(buf, binary.BigEndian, d.Xid)
-	n += 4
-	binary.Write(buf, binary.BigEndian, d.Secs)
-	n += 2
-	binary.Write(buf, binary.BigEndian, d.Flags)
-	n += 2
-	binary.Write(buf, binary.BigEndian, d.ClientIP)
-	n += 4
-	binary.Write(buf, binary.BigEndian, d.YourIP)
-	n += 4
-	binary.Write(buf, binary.BigEndian, d.ServerIP)
-	n += 4
-	binary.Write(buf, binary.BigEndian, d.GatewayIP)
-	n += 4
-	clientHWAddr := make([]byte, 16)
-	copy(clientHWAddr[0:], d.ClientHWAddr)
-	binary.Write(buf, binary.BigEndian, clientHWAddr)
-	n += 16
-	binary.Write(buf, binary.BigEndian, d.ServerName)
-	n += 64
-	binary.Write(buf, binary.BigEndian, d.File)
-	n += 128
-	binary.Write(buf, binary.BigEndian, dhcpMagic)
-	n += 4
-
-	optend := false
-	for _, opt := range d.Options {
-		m, err := DHCPWriteOption(buf, opt)
-		n += m
-		if err != nil {
-			return n, err
-		}
-		if opt.OptionType() == DHCP_OPT_END {
-			optend = true
-		}
-	}
-	if !optend {
-		m, err := DHCPWriteOption(buf, DHCPNewOption(DHCP_OPT_END, nil))
-		n += m
-		if err != nil {
-			return n, err
-		}
-	}
-	if n, err = buf.Read(b); n == 0 {
-		return
-	}
-	return n, nil
+func (p *DHCP) SetBroadcast(broadcast bool) {
+	p.Flags ^= 128
 }
 
-func (d *DHCP) Write(b []byte) (n int, err error) {
-	if len(b) < 240 {
-		return 0, errors.New("ErrTruncated")
+func (p *DHCP) Marshal() ([]byte, error) {
+	plen := p.Len()
+	if plen < 300 {
+		plen = 300
 	}
-	buf := bytes.NewBuffer(b)
+	data := make([]byte, plen)
+	data[0] = byte(p.Operation)
+	data[1] = p.HardwareType
+	data[2] = p.HardwareLen
+	data[3] = p.HardwareOpts
+	binary.BigEndian.PutUint32(data[4:8], p.Xid)
+	binary.BigEndian.PutUint16(data[8:10], p.Secs)
+	binary.BigEndian.PutUint16(data[10:12], p.Flags)
+	copy(data[12:16], p.ClientIP.To4())
+	copy(data[16:20], p.YourIP.To4())
+	copy(data[20:24], p.ServerIP.To4())
+	copy(data[24:28], p.GatewayIP.To4())
+	copy(data[28:44], p.ClientHWAddr)
+	copy(data[44:108], p.ServerName)
+	copy(data[108:236], p.File)
+	binary.BigEndian.PutUint32(data[236:240], dhcpMagic)
 
-	if err = binary.Read(buf, binary.BigEndian, &d.Operation); err != nil {
-		return
+	if len(p.Options) > 0 {
+		options := make([]byte, plen-240)
+		start := 0
+		for _, o := range p.Options {
+			buffer, err := o.Marshal()
+			if err != nil {
+				return nil, err
+			}
+			copy(options[start:], buffer)
+			start += len(buffer)
+		}
+		optend := NewOption(DHCP_OPT_END, nil)
+		buffer, err := (&optend).Marshal()
+		if err != nil {
+			return nil, err
+		}
+		copy(options[start:], buffer)
+		buf := new(bytes.Buffer)
+		if err := binary.Write(buf, binary.BigEndian, options); err != nil {
+			return nil, err
+		}
+		copy(data[240:], buf.Bytes())
 	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &d.HardwareType); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &d.HardwareLen); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &d.HardwareOpts); err != nil {
-		return
-	}
-	n += 1
-	if err = binary.Read(buf, binary.BigEndian, &d.Xid); err != nil {
-		return
-	}
-	n += 4
-	if err = binary.Read(buf, binary.BigEndian, &d.Secs); err != nil {
-		return
-	}
-	n += 2
-	if err = binary.Read(buf, binary.BigEndian, &d.Flags); err != nil {
-		return
-	}
-	n += 2
-	d.ClientIP = make([]byte, 4)
-	if err = binary.Read(buf, binary.BigEndian, &d.ClientIP); err != nil {
-		return
-	}
-	n += 4
-	d.YourIP = make([]byte, 4)
-	if err = binary.Read(buf, binary.BigEndian, &d.YourIP); err != nil {
-		return
-	}
-	n += 4
-	d.ServerIP = make([]byte, 4)
-	if err = binary.Read(buf, binary.BigEndian, &d.ServerIP); err != nil {
-		return
-	}
-	n += 4
-	d.GatewayIP = make([]byte, 4)
-	if err = binary.Read(buf, binary.BigEndian, &d.GatewayIP); err != nil {
-		return
-	}
-	n += 4
-	clientHWAddr := make([]byte, 16)
-	if err = binary.Read(buf, binary.BigEndian, &clientHWAddr); err != nil {
-		return
-	}
-	d.ClientHWAddr = net.HardwareAddr(clientHWAddr[:d.HardwareLen])
-	n += 16
+	return data, nil
+}
 
-	if err = binary.Read(buf, binary.BigEndian, &d.ServerName); err != nil {
-		return
-	}
-	n += 64
-	if err = binary.Read(buf, binary.BigEndian, &d.File); err != nil {
-		return
-	}
-	n += 128
-
-	var magic uint32
-	if err = binary.Read(buf, binary.BigEndian, &magic); err != nil {
-		return
-	}
-	n += 4
-
-	if magic != dhcpMagic {
-		return n, errors.New("Bad DHCP header")
+func (p *DHCP) Unmarshal(data []byte) error {
+	if len(data) < 240 {
+		return fmt.Errorf("Unable to Unmarshal truncated packet %d", len(data))
 	}
 
-	optlen := buf.Len()
-	opts := make([]byte, optlen)
-	if err = binary.Read(buf, binary.BigEndian, &opts); err != nil {
-		return
+	p.Operation = Operation(data[0])
+	p.HardwareType = data[1]
+	p.HardwareLen = data[2]
+	p.HardwareOpts = data[3]
+	p.Xid = binary.BigEndian.Uint32(data[4:8])
+	p.Secs = binary.BigEndian.Uint16(data[8:10])
+	p.Flags = binary.BigEndian.Uint16(data[10:12])
+	p.ClientIP = net.IP(data[12:16])
+	p.YourIP = net.IP(data[16:20])
+	p.ServerIP = net.IP(data[20:24])
+	p.GatewayIP = net.IP(data[24:28])
+	p.ClientHWAddr = net.HardwareAddr(data[28 : 28+p.HardwareLen])
+	p.ServerName = data[44:108]
+	p.File = data[108:236]
+	if binary.BigEndian.Uint32(data[236:240]) != dhcpMagic {
+		return errors.New("Bad DHCP header")
 	}
-	n += optlen
 
-	if d.Options, err = DHCPParseOptions(opts); err != nil {
-		return
+	if len(data) > 240 {
+		options := make([]byte, len(data)-240)
+		if binary.Read(bytes.NewBuffer(data[240:]), binary.BigEndian, &options) != nil {
+			return errors.New("failed to unmarshal options")
+		}
+
+		stop := len(options)
+		start := 0
+		for start < stop {
+			o := Option{}
+			if err := o.Unmarshal(options[start:]); err != nil {
+				return err
+			}
+			if o.Type == DHCP_OPT_END {
+				return nil
+			}
+			p.Options = append(p.Options, o)
+			start += int(o.Length) + 2
+		}
 	}
-
-	return
+	return nil
 }
 
 // Standard options (RFC1533)
@@ -397,162 +338,96 @@ var DHCPOptionTypeStrings = [256]string{
 	DHCP_OPT_CLIENT_ID:                "ClientID",
 }
 
-type DHCPOption interface {
-	OptionType() byte
-	Bytes() []byte
-	Len() uint16
+type Option struct {
+	Type   uint8
+	Length uint8
+	Data   []byte
 }
 
-// Write an option to an io.Writer, including tag  & length
-// (if length is appropriate to the tag type).
-// Utilizes the MarshalOption as the underlying serializer.
-func DHCPWriteOption(w io.Writer, a DHCPOption) (n int, err error) {
-	out, err := DHCPMarshalOption(a)
-	if err == nil {
-		n, err = w.Write(out)
+func NewOption(t uint8, data []byte) Option {
+	o := Option{Type: t}
+	if data != nil {
+		o.Data = data
+		o.Length = uint8(len(data))
 	}
-	return
+	return o
 }
 
-type dhcpoption struct {
-	tag  byte
-	data []byte
-}
-
-// A more json.Marshal like version of WriteOption.
-func DHCPMarshalOption(o DHCPOption) (out []byte, err error) {
-	switch o.OptionType() {
+func (o *Option) Marshal() ([]byte, error) {
+	var data []byte
+	switch o.Type {
 	case DHCP_OPT_PAD, DHCP_OPT_END:
-		out = []byte{o.OptionType()}
+		data = []byte{o.Type}
 	default:
-		dlen := len(o.Bytes())
-		if dlen > 253 {
-			err = errors.New("Data too long to marshal")
-		} else {
-			out = make([]byte, dlen+2)
-			out[0], out[1] = o.OptionType(), byte(dlen)
-			copy(out[2:], o.Bytes())
+		if o.Length > 253 {
+			return nil, errors.New("Data too long to marshal")
 		}
+		data = make([]byte, o.Length+2)
+		data[0], data[1] = o.Type, o.Length
+		copy(data[2:], o.Data)
 	}
-	return
+	return data, nil
 }
 
-func (self dhcpoption) Len() uint16      { return uint16(len(self.data) + 2) }
-func (self dhcpoption) Bytes() []byte    { return self.data }
-func (self dhcpoption) OptionType() byte { return self.tag }
-
-func DHCPNewOption(tag byte, data []byte) DHCPOption {
-	return &dhcpoption{tag: tag, data: data}
-}
-
-// NB: We don't validate that you have /any/ IP's in the option here,
-// simply that if you do that they're valid. Most DHCP options are only
-// valid with 1(+|) values
-func DHCPIP4sOption(tag byte, ips []net.IP) (opt DHCPOption, err error) {
-	var out []byte = make([]byte, 4*len(ips))
-	for i := range ips {
-		ip := ips[i].To4()
-		if ip == nil {
-			err = errors.New("ip is not a valid IPv4 address")
-		} else {
-			copy(out[i*4:], []byte(ip))
+func (o *Option) Unmarshal(data []byte) error {
+	log.Printf("DDDD %+v\n", data)
+	o.Type = data[0]
+	switch o.Type {
+	case DHCP_OPT_PAD, DHCP_OPT_END:
+		o.Data = nil
+	default:
+		o.Length = data[1]
+		if o.Length > 253 {
+			return errors.New("Data too long to unmarshal")
 		}
-		if err != nil {
-			break
-		}
+		o.Data = make([]byte, o.Length)
+		copy(o.Data, data[2:2+o.Length])
 	}
-	opt = DHCPNewOption(tag, out)
-	return
-}
-
-// NB: We don't validate that you have /any/ IP's in the option here,
-// simply that if you do that they're valid. Most DHCP options are only
-// valid with 1(+|) values
-func DHCPIP4Option(tag byte, ips net.IP) (opt DHCPOption, err error) {
-	ips = ips.To4()
-	if ips == nil {
-		err = errors.New("ip is not a valid IPv4 address")
-		return
-	}
-	opt = DHCPNewOption(tag, []byte(ips))
-	return
-}
-
-// NB: I'm not checking tag : min length here!
-func DHCPStringOption(tag byte, s string) (opt DHCPOption, err error) {
-	opt = &dhcpoption{tag: tag, data: bytes.NewBufferString(s).Bytes()}
-	return
-}
-
-func DHCPParseOptions(in []byte) (opts []DHCPOption, err error) {
-	pos := 0
-	for pos < len(in) && err == nil {
-		var tag = in[pos]
-		pos++
-		switch tag {
-		case DHCP_OPT_PAD:
-			opts = append(opts, DHCPNewOption(tag, []byte{}))
-		case DHCP_OPT_END:
-			return
-		default:
-			if len(in)-pos >= 1 {
-				_len := in[pos]
-				pos++
-				opts = append(opts, DHCPNewOption(tag, in[pos:pos+int(_len)]))
-				pos += int(_len)
-			}
-		}
-	}
-	return
+	return nil
 }
 
 func NewDHCPDiscover(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_REQ, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_REQ, HW_TYPE_ETHERNET); err != nil {
 		return
 	}
-	d.HardwareLen = uint8(len(hwAddr))
 	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_DISCOVER)}))
-	d.Options = append(d.Options, DHCPNewOption(DHCP_OPT_CLIENT_ID, hwAddr))
+	d.Options = append(d.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_DISCOVER)}})
+	d.Options = append(d.Options, Option{Type: DHCP_OPT_CLIENT_ID, Data: hwAddr})
 	return
 }
 
 func NewDHCPOffer(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_RES, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET); err != nil {
 		return
 	}
-	d.HardwareLen = uint8(len(hwAddr))
 	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_OFFER)}))
+	d.Options = append(d.Options, NewOption(53, []byte{byte(DHCP_MSG_OFFER)}))
 	return
 }
 
 func NewDHCPRequest(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_REQ, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_REQ, HW_TYPE_ETHERNET); err != nil {
 		return
 	}
-	d.HardwareLen = uint8(len(hwAddr))
 	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_REQUEST)}))
+	d.Options = append(d.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_REQUEST)}})
 	return
 }
 
 func NewDHCPAck(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_RES, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET); err != nil {
 		return
 	}
-	d.HardwareLen = uint8(len(hwAddr))
 	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_ACK)}))
+	d.Options = append(d.Options, NewOption(53, []byte{byte(DHCP_MSG_ACK)}))
 	return
 }
 
 func NewDHCPNak(xid uint32, hwAddr net.HardwareAddr) (d *DHCP, err error) {
-	if d, err = NewDHCP(xid, DHCP_MSG_RES, DHCP_HW_ETHERNET); err != nil {
+	if d, err = NewDHCP(xid, DHCP_MSG_RES, HW_TYPE_ETHERNET); err != nil {
 		return
 	}
-	d.HardwareLen = uint8(len(hwAddr))
 	copy(d.ClientHWAddr, hwAddr[:d.HardwareLen])
-	d.Options = append(d.Options, DHCPNewOption(53, []byte{byte(DHCP_MSG_NAK)}))
+	d.Options = append(d.Options, Option{Type: 53, Data: []byte{byte(DHCP_MSG_NAK)}})
 	return
 }

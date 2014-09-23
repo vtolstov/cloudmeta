@@ -22,7 +22,7 @@ func (i *ICMPv6) Len() (n uint16) {
 	return uint16(4 + len(i.Data))
 }
 
-func (i *ICMPv6) MarshalBinary() (data []byte, err error) {
+func (i *ICMPv6) Marshal() (data []byte, err error) {
 	data = make([]byte, int(i.Len()))
 	data[0] = i.Type
 	data[1] = i.Code
@@ -31,7 +31,7 @@ func (i *ICMPv6) MarshalBinary() (data []byte, err error) {
 	return
 }
 
-func (i *ICMPv6) UnmarshalBinary(data []byte) error {
+func (i *ICMPv6) Unmarshal(data []byte) error {
 	if len(data) < 4 {
 		return errors.New("The []byte is too short to unmarshal a full ICMP message.")
 	}
@@ -113,20 +113,19 @@ func checksum(b []byte) uint16 {
 	return uint16(s<<8 | s>>(16-8))
 }
 
-func NewRouterAdvertisement(src, dst net.IP, mac net.HardwareAddr, prefix string, prefixlen string) (ra *RouterAdvertisement) {
+func NewRouterAdvertisement(src, dst net.IP, prefix string, prefixlen string) (ra *RouterAdvertisement) {
 	ra = &RouterAdvertisement{}
-	b := ipv6PseudoHeader(src, dst, 58)
-	ra.Checksum = checksum(b)
 	ra.Type = 134
 	ra.Code = 0
 	ra.LifeTime = 9000
 	ra.HopLimit = 64
+	ra.Checksum = checksum(ipv6PseudoHeader(src, dst, 58))
 	preflen, _ := strconv.ParseUint(prefixlen, 10, 8)
 	ra.Prefix = PrefixInfo{Type: 3, Length: 4, ValidLifeTime: 86400, PrefLifeTime: 14400, Prefix: net.ParseIP(prefix), PrefixLength: uint8(preflen), OnLinkFlag: true, AutonomousFlag: true}
 	return ra
 }
 
-func (ra *RouterAdvertisement) MarshalBinary() (data []byte, err error) {
+func (ra *RouterAdvertisement) Marshal() (data []byte, err error) {
 	data = make([]byte, 16+32)
 	n := 0
 	data[n] = ra.Type
@@ -180,7 +179,7 @@ func setBit(num *uint8, position ...byte) {
 	}
 }
 
-func (rs *RouterSolicitation) UnmarshalBinary(data []byte) error {
+func (rs *RouterSolicitation) Unmarshal(data []byte) error {
 	rs.Type = data[0]
 	rs.Code = data[1]
 	rs.Checksum = binary.BigEndian.Uint16(data[2:4])

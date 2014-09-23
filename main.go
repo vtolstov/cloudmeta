@@ -1,26 +1,29 @@
 package main
 
 import (
-	"log"
+	"flag"
 	"net"
-	"os"
 	"strings"
 	"syscall"
+
+	"github.com/golang/glog"
 
 	netlink "./netlink"
 )
 
+func init() {
+	flag.Parse()
+}
+
 func main() {
 	nl, err := netlink.NewNetlinkSocket(netlink.RTMGRP_LINK)
 	if err != nil {
-		log.Printf(err.Error())
-		os.Exit(1)
+		glog.Error(err.Error())
 	}
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		log.Printf(err.Error())
-		os.Exit(1)
+		glog.Error(err.Error())
 	}
 
 	for _, iface := range ifaces {
@@ -31,20 +34,18 @@ func main() {
 		if _, ok := servers[name[3:]]; !ok {
 			s := &Server{name: name[3:]}
 			servers[name[3:]] = s
-			log.Printf("%s start serving\n", name[3:])
-			go func() {
-				err := s.Start()
-				if err != nil {
-					log.Printf("err %s\n", err.Error())
-				}
-			}()
+			glog.Infof("%s start serving\n", name[3:])
+			go s.Start()
 		}
 	}
+
+	//	glog.Info("ListenAndServeTCPv4")
+	//	go ListenAndServeTCPv4()
 
 	for {
 		msgs, err := nl.Receive()
 		if err != nil {
-			log.Printf("nl err: %s\n", err.Error())
+			glog.Warningf("nl err: %s\n", err.Error())
 			continue
 		}
 	loop:
@@ -55,7 +56,7 @@ func main() {
 			case syscall.RTM_NEWLINK:
 				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
 				if err != nil {
-					log.Printf("nl err: %s\n", err.Error())
+					glog.Warningf("nl err: %s\n", err.Error())
 					continue
 				}
 				for _, attr := range attrs {
@@ -66,16 +67,8 @@ func main() {
 							if _, ok := servers[name[3:]]; !ok {
 								s := &Server{name: name[3:]}
 								servers[name[3:]] = s
-								err = nil
-								go func(err error) error {
-									err = s.Start()
-									return err
-								}(err)
-								if err == nil {
-									s.LogInfo("%s start serving\n", name[3:])
-								} else {
-									s.LogError("%s failed serving %s\n", name[3:], err.Error())
-								}
+								go s.Start()
+								glog.Infof("%s start serving\n", name[3:])
 							}
 						}
 					}
@@ -83,7 +76,7 @@ func main() {
 			case syscall.RTM_DELLINK:
 				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
 				if err != nil {
-					log.Printf("nl err: %s\n", err.Error())
+					glog.Warningf("nl err: %s\n", err.Error())
 					continue
 				}
 				for _, attr := range attrs {
@@ -92,16 +85,8 @@ func main() {
 						name := string(attr.Value[:len(attr.Value)-1])
 						if strings.HasPrefix(name, "tap") {
 							if s, ok := servers[name[3:]]; ok {
-								err = nil
-								go func(err error) error {
-									err = s.Stop()
-									return err
-								}(err)
-								if err == nil {
-									s.LogInfo("%s stop serving\n", name[3:])
-								} else {
-									s.LogError("%s failed serving %s\n", name[3:], err.Error())
-								}
+								go s.Stop()
+								glog.Infof("%s stop serving\n", name[3:])
 								delete(servers, name[3:])
 							}
 						}

@@ -3,8 +3,8 @@
 #
 ### BEGIN INIT INFO
 # Provides:          svirtnet
-# Required-Start:    $remote_fs $syslog $time
-# Required-Stop:     $remote_fs $syslog $time
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
 # Should-Start:      $network $named slapd autofs ypbind nscd nslcd
 # Should-Stop:       $network $named slapd autofs ypbind nscd nslcd
 # Default-Start:     2 3 4 5
