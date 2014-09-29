@@ -10,12 +10,10 @@
 export DH_VERBOSE=1
 PWD = $(shell pwd)
 
-override_dh_build:
+override_dh_install:
 	wget https://storage.googleapis.com/golang/go1.3.1.linux-amd64.tar.gz -O go.tar.gz
 	tar -zxf go.tar.gz
 	GOROOT=$(PWD)/go GOPATH=$(PWD)/third_party/ $(PWD)/go/bin/go build -a -x -o svirtnet
-
-override_dh_install:
 	dh_install
 
 %:
