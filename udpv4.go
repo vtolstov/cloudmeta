@@ -6,13 +6,10 @@ import (
 	"net"
 	"time"
 
+	"./../gopacket/layers"
 	"code.google.com/p/go.net/ipv4"
+	"code.google.com/p/gopacket"
 	"github.com/golang/glog"
-	"github.com/vtolstov/ogo/protocol/util"
-
-	"./dhcpv4"
-	pipv4 "./ipv4"
-	"./udp"
 )
 
 func (s *Server) ListenAndServeUDPv4() {
@@ -51,6 +48,8 @@ func (s *Server) ListenAndServeUDPv4() {
 		glog.Errorf(err.Error())
 	}
 
+	_ = gw
+	_ = iface
 	for {
 		//		s.RLock()
 		if s.shutdown {
@@ -61,7 +60,7 @@ func (s *Server) ListenAndServeUDPv4() {
 
 		s.ipv4conn.SetReadDeadline(time.Now().Add(time.Second))
 
-		hdr, payload, _, err := s.ipv4conn.ReadFrom(buffer)
+		hdr, _, _, err := s.ipv4conn.ReadFrom(buffer)
 
 		if err != nil {
 			switch v := err.(type) {
@@ -82,63 +81,56 @@ func (s *Server) ListenAndServeUDPv4() {
 				return
 			}
 		}
+		var ip4 layers.IPv4
+		var udp layers.UDP
+		var dhcp4req layers.DHCPv4
+		parser := gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, &ip4, &udp, &dhcp4req)
+		decoded := []gopacket.LayerType{}
+		err = parser.DecodeLayers(buffer, &decoded)
+		for _, layerType := range decoded {
+			switch layerType {
+			/*
+				case layers.LayerTypeIPv4:
+					fmt.Printf("IP4: %+v\n", ip4)
+				case layers.LayerTypeUDP:
+					fmt.Printf("UDP: %+v\n", udp)
+			*/
+			case layers.LayerTypeDHCPv4:
+				if dhcp4req.Operation == layers.DHCP_MSG_REQ {
+					fmt.Printf("DHCP4: %+v\n", dhcp4req)
 
-		if hdr == nil || hdr.Protocol != int(pipv4.Type_UDP) {
-			continue
-		}
+					dhcp4res, err := s.ServeUDPv4(&dhcp4req)
+					if err != nil {
+						glog.Warningf(err.Error())
+						continue
+					}
 
-		req := &udp.UDP{}
-		err = req.Unmarshal(payload)
-		if err != nil {
-			glog.Warningf(err.Error())
-			continue
-		}
+					buf := gopacket.NewSerializeBuffer()
+					opts := gopacket.SerializeOptions{true, true}
+					gopacket.SerializeLayers(buf, opts,
+						/*					&layers.IPv4{Version: 4, TTL: 255, SrcIP: gw.To4(), DstIP: net.IPv4bcast.To4()}, */
+						&layers.UDP{SrcPort: 67, DstPort: 68},
+						dhcp4res)
 
-		res, err := s.ServeUDPv4(req)
-
-		if err != nil {
-			glog.Infof("Error Serving UDPv4: %s\n", err)
-			continue
-		}
-		if res == nil {
-			continue
-		}
-		var buf []byte
-		res.Checksum = 0
-		if buf, err = res.Marshal(); err != nil {
-			glog.Warningf(err.Error())
-			continue
-		}
-
-		res.Checksum = util.Checksum(append(udp.UDPv4PseudoHeader(gw, net.IPv4bcast, pipv4.Type_UDP, res.Length+1), buf...))
-
-		if buf, err = res.Marshal(); err != nil {
-			glog.Warningf(err.Error())
-			continue
-		}
-		wcm := ipv4.ControlMessage{TTL: 255}
-		wcm.Dst = net.IPv4bcast.To4()
-		wcm.Src = gw.To4()
-		wcm.IfIndex = iface.Index
-		err = s.ipv4conn.WriteTo(&ipv4.Header{Len: 20, TOS: hdr.TOS, TotalLen: 20 + int(res.Length), FragOff: 0, TTL: 255, Protocol: int(pipv4.Type_UDP), Src: gw.To4(), Dst: wcm.Dst.To4()}, buf, &wcm)
-		if err != nil {
-			glog.Infof("Error Writing: %s\n", err.Error())
+					wcm := ipv4.ControlMessage{TTL: 255}
+					wcm.Dst = net.IPv4bcast.To4()
+					wcm.Src = gw.To4()
+					wcm.IfIndex = iface.Index
+					err = s.ipv4conn.WriteTo(&ipv4.Header{Len: 20, TOS: hdr.TOS, TotalLen: 20 + int(len(buf.Bytes())), FragOff: 0, TTL: 255, Protocol: int(layers.IPProtocolUDP), Src: gw.To4(), Dst: net.IPv4bcast.To4()}, buf.Bytes(), &wcm)
+					if err != nil {
+						glog.Warningf(err.Error())
+						continue
+					}
+				}
+			}
 		}
 	}
 }
 
-func (s *Server) ServeUDPv4(req *udp.UDP) (*udp.UDP, error) {
-	dhcpreq := &dhcpv4.DHCP{}
-	if err := dhcpreq.Unmarshal(req.Data); err != nil {
-		return nil, err
-	}
-	dhcpres := &dhcpv4.DHCP{}
+func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
+	dhcpres := &layers.DHCPv4{}
 
 	glog.Infof("%s dhcpv4 req: %+v\n", s.name, dhcpreq)
-
-	udpres := &udp.UDP{}
-	udpres.Src = req.Dst
-	udpres.Dst = req.Src
 
 	leaseTime := 6000
 	var ip net.IP
@@ -163,87 +155,72 @@ func (s *Server) ServeUDPv4(req *udp.UDP) (*udp.UDP, error) {
 		return nil, fmt.Errorf("failed to get ipnet")
 	}
 
-	if dhcpreq == nil || dhcpreq.Options == nil {
-		return nil, nil
-	}
-
 	opt := dhcpreq.Options[0]
 	switch opt.Type {
-	case dhcpv4.DHCP_OPT_MESSAGE_TYPE:
-		switch dhcpv4.Operation(opt.Data[0]) {
-		case dhcpv4.Operation(dhcpv4.DHCP_MSG_DISCOVER):
-			dhcpres, err = dhcpv4.NewDHCPOffer(dhcpreq.Xid)
+	case layers.DHCP_OPT_MESSAGE_TYPE:
+		switch layers.Operation(opt.Data[0]) {
+		case layers.Operation(layers.DHCP_MSG_DISCOVER):
+			dhcpres, err = layers.NewDHCPOffer(dhcpreq.Xid)
 			if err != nil {
 				return nil, err
 			}
 			copy(dhcpres.ClientHWAddr, mac[:dhcpres.HardwareLen])
 			copy(dhcpres.YourIP, ip.To4())
 			copy(dhcpres.ServerIP, gw.To4())
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(3, []byte(gw.To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(15, []byte("simplecloud.club")))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(12, []byte(s.name)))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(3, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(15, []byte("simplecloud.club")))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name)))
 			var b [8]byte
 			var bs []byte
 			bs = b[:4]
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(51, bs))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(54, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(51, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(54, []byte(gw.To4())))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*50))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(dhcpv4.DHCP_OPT_T1, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T1, bs))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*88))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(dhcpv4.DHCP_OPT_T2, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T2, bs))
 			bs = b[:2]
 			binary.BigEndian.PutUint16(bs, uint16(1500))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(dhcpv4.DHCP_OPT_INTERFACE_MTU, bs))
-		case dhcpv4.Operation(dhcpv4.DHCP_MSG_REQUEST):
-			dhcpres, err = dhcpv4.NewDHCPAck(dhcpreq.Xid)
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_INTERFACE_MTU, bs))
+		case layers.Operation(layers.DHCP_MSG_REQUEST):
+			dhcpres, err = layers.NewDHCPAck(dhcpreq.Xid)
 			if err != nil {
 				return nil, err
 			}
 			copy(dhcpres.ClientHWAddr, mac[:dhcpres.HardwareLen])
 			copy(dhcpres.YourIP, ip.To4())
 			copy(dhcpres.ServerIP, gw.To4())
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(3, []byte(gw.To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(15, []byte("simplecloud.club")))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(12, []byte(s.name)))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(3, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(15, []byte("simplecloud.club")))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name)))
 			var b [8]byte
 			var bs []byte
 			bs = b[:4]
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(51, bs))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(54, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(51, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(54, []byte(gw.To4())))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*50))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(dhcpv4.DHCP_OPT_T1, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T1, bs))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*88))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(dhcpv4.DHCP_OPT_T2, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T2, bs))
 			bs = b[:2]
 			binary.BigEndian.PutUint16(bs, uint16(1500))
-			dhcpres.Options = append(dhcpres.Options, dhcpv4.NewOption(dhcpv4.DHCP_OPT_INTERFACE_MTU, bs))
-		case dhcpv4.Operation(dhcpv4.DHCP_MSG_OFFER), dhcpv4.Operation(dhcpv4.DHCP_MSG_ACK):
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_INTERFACE_MTU, bs))
+		case layers.Operation(layers.DHCP_MSG_OFFER), layers.Operation(layers.DHCP_MSG_ACK):
 			return nil, nil
 		default:
-			return nil, fmt.Errorf("unk dhcp msg: %d\n", dhcpv4.Operation(opt.Data[0]))
+			return nil, fmt.Errorf("unk dhcp msg: %d\n", layers.Operation(opt.Data[0]))
 		}
 	}
-	var buf []byte
-	if buf, err = dhcpres.Marshal(); err != nil {
-		glog.Warningf(err.Error())
-		return nil, err
-	}
 
-	udpres.Data = make([]byte, len(buf))
-	copy(udpres.Data, buf)
-	udpres.Length = udpres.Len()
-
-	glog.Infof("%s dhcpv4 res: %+v\n", s.name, dhcpres)
-
-	return udpres, nil
+	return dhcpres, nil
 }
