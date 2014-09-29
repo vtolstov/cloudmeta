@@ -12,7 +12,6 @@ PWD = $(shell pwd)
 
 override_dh_clean:
 	dh_clean
-	rm -rf third_party/
 
 override_dh_install:
 	wget https://storage.googleapis.com/golang/go1.3.1.linux-amd64.tar.gz -O go.tar.gz
