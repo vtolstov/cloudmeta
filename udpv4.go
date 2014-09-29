@@ -6,9 +6,9 @@ import (
 	"net"
 	"time"
 
-	"./../gopacket/layers"
 	"code.google.com/p/go.net/ipv4"
 	"code.google.com/p/gopacket"
+	"code.google.com/p/gopacket/layers"
 	"github.com/golang/glog"
 )
 
