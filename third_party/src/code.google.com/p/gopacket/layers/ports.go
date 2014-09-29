@@ -64,6 +64,8 @@ func (a UDPPort) LayerType() gopacket.LayerType {
 	switch a {
 	case 53:
 		return LayerTypeDNS
+	case 67, 68:
+		return LayerTypeDHCPv4
 	default:
 		return gopacket.LayerTypePayload
 	}
