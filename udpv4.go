@@ -173,7 +173,7 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			dhcpres.Options = append(dhcpres.Options, layers.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewOption(15, []byte("simplecloud.club")))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name)))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name+".simplecloud.club")))
 			var b [8]byte
 			var bs []byte
 			bs = b[:4]
@@ -201,7 +201,7 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			dhcpres.Options = append(dhcpres.Options, layers.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewOption(15, []byte("simplecloud.club")))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name)))
+			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name+".simplecloud.club")))
 			var b [8]byte
 			var bs []byte
 			bs = b[:4]
