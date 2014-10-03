@@ -31,6 +31,8 @@ func (s *Server) ListenAndServeICMPv6() {
 
 	buffer := make([]byte, 1500)
 
+	go s.Unsolicitated()
+
 	for {
 		//		s.RLock()
 		if s.shutdown {
@@ -40,68 +42,94 @@ func (s *Server) ListenAndServeICMPv6() {
 		//s.RUnlock()
 
 		s.ipv6conn.SetReadDeadline(time.Now().Add(time.Second))
-		_, cm, src, err := s.ipv6conn.ReadFrom(buffer)
-		_ = cm
+		_, _, _, err := s.ipv6conn.ReadFrom(buffer)
 		if err != nil {
-			continue
-		}
-		fields := strings.Split(src.String(), "%")
-		if len(fields) != 2 {
-			continue
-		}
-		device := fields[1]
-		dstIP := net.ParseIP(fields[0])
-		srcIP := dstIP
-		iface, err := net.InterfaceByName(device)
-		if err != nil {
-			glog.Infof("can't find iface %s: %s\n", device, err.Error())
-			continue
-		}
-		addrs, err := iface.Addrs()
-		if err != nil {
-			glog.Infof("can't get addresses from %s: %s\n", iface.Name, err.Error())
 			continue
 		}
 
-		for _, addr := range addrs {
-			a := strings.Split(addr.String(), "/")[0]
-			ip := net.ParseIP(a)
-			if ip == nil {
-				continue
-			}
-			if ip.To4() != nil && strings.HasPrefix(a, "fe80") {
-				srcIP = ip
-				break
-			}
-		}
 		req := &icmpv6.ICMPv6{}
 		err = req.Unmarshal(buffer)
 		if err != nil {
 			glog.Infof(err.Error())
 			continue
 		}
-		res, err := s.ServeICMPv6(srcIP, req)
+
+		if req.Type == uint8(ipv6.ICMPTypeRouterSolicitation) {
+			s.sendRA()
+		}
+	}
+}
+
+func (s *Server) Unsolicitated() {
+	ticker := time.NewTicker(9000 * time.Second)
+	quit := make(chan struct{})
+	s.sendRA()
+
+	for {
+		select {
+		case <-quit:
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			s.sendRA()
+			/*
+				default:
+					if s.shutdown {
+						ticker.Stop()
+						return
+					}
+			*/
+		}
+	}
+}
+
+func (s *Server) sendRA() {
+	var srcIP net.IP
+	ipAddr := &net.IPAddr{IP: net.IPv6linklocalallnodes, Zone: "tap" + s.name}
+	iface, err := net.InterfaceByName("tap" + s.name)
+	if err != nil {
+		glog.Infof("can't find iface %s: %s\n", "tap"+s.name, err.Error())
+		return
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		glog.Infof("can't get addresses from %s: %s\n", iface.Name, err.Error())
+		return
+	}
+
+	for _, addr := range addrs {
+		a := strings.Split(addr.String(), "/")[0]
+		ip := net.ParseIP(a)
+		if ip == nil {
+			continue
+		}
+		if ip.To4() != nil && strings.HasPrefix(a, "fe80") {
+			srcIP = ip
+			break
+		}
+	}
+
+	res, err := s.ServeICMPv6(srcIP, &icmpv6.ICMPv6{Type: uint8(ipv6.ICMPTypeRouterSolicitation)})
+	if err != nil {
+		glog.Infof(err.Error())
+		return
+	}
+
+	for _, msg := range res {
+		buf := make([]byte, msg.Len())
+		buf, err = msg.Marshal()
 		if err != nil {
-			glog.Infof(err.Error())
+			glog.Infof("%s err: %s", s.name, err.Error())
 			continue
 		}
 
-		for _, msg := range res {
-			buf := make([]byte, msg.Len())
-			buf, err = msg.Marshal()
-			if err != nil {
-				glog.Infof("%s err: %s", s.name, err.Error())
-				continue
-			}
-
-			wcm := ipv6.ControlMessage{HopLimit: 255}
-			wcm.Dst = net.IPv6linklocalallnodes
-			wcm.IfIndex = iface.Index
-			_, err = s.ipv6conn.WriteTo(buf, &wcm, src)
-			if err != nil {
-				glog.Infof("%s err: %s", s.name, err.Error())
-				continue
-			}
+		wcm := ipv6.ControlMessage{HopLimit: 255}
+		wcm.Dst = net.IPv6linklocalallnodes
+		wcm.IfIndex = iface.Index
+		_, err = s.ipv6conn.WriteTo(buf, &wcm, ipAddr)
+		if err != nil {
+			glog.Infof("%s err: %s", s.name, err.Error())
+			continue
 		}
 	}
 }
@@ -110,8 +138,6 @@ func (s *Server) ServeICMPv6(src net.IP, req *icmpv6.ICMPv6) ([]*icmpv6.ICMPv6, 
 	var res []*icmpv6.ICMPv6
 	switch req.ICMPType() {
 	case ipv6.ICMPTypeRouterSolicitation:
-		rs := &icmpv6.RouterSolicitation{}
-		rs.Unmarshal(req.Data)
 		for _, addr := range s.metadata.Network.IP {
 			// TODO fix ipv6 addr
 			if addr.Family == "ipv6" && addr.Host == "true" {
