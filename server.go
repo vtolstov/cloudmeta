@@ -116,7 +116,7 @@ func (s *Server) Start() error {
 	var err error
 	var domain libvirt.VirDomain
 
-	if s == nil || s.name == "" {
+	if s.name == "" {
 		return errors.New("invalid server config")
 	}
 

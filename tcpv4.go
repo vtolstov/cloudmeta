@@ -15,11 +15,12 @@ import (
 
 func getServerByIP(ip string) (*Server, error) {
 	for _, s := range servers {
+		if s.metadata == nil {
+			continue
+		}
 		for _, addr := range s.metadata.Network.IP {
-			if addr.Gateway == "false" {
-				if addr.Address == ip {
-					return s, nil
-				}
+			if addr.Gateway == "false" && addr.Address == ip {
+				return s, nil
 			}
 		}
 	}
@@ -58,7 +59,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	host, _, _ = net.SplitHostPort(r.RemoteAddr)
 	s, err := getServerByIP(host)
 	if err != nil {
-		glog.Infof("%+v\n", r)
+		glog.Infof("err: %s %+v\n", err, r)
 		w.WriteHeader(503)
 		return
 	}
