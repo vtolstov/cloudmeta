@@ -63,6 +63,8 @@ func (s *Server) ListenAndServeICMPv6() {
 func (s *Server) Unsolicitated() {
 	ticker := time.NewTicker(9000 * time.Second)
 	quit := make(chan struct{})
+
+	time.Sleep(5 * time.Second)
 	s.sendRA()
 
 	for {
@@ -85,7 +87,8 @@ func (s *Server) Unsolicitated() {
 
 func (s *Server) sendRA() {
 	var srcIP net.IP
-	ipAddr := &net.IPAddr{IP: net.IPv6linklocalallnodes, Zone: "tap" + s.name}
+	var ipAddr *net.IPAddr
+
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {
 		glog.Infof("can't find iface %s: %s\n", "tap"+s.name, err.Error())
@@ -98,17 +101,22 @@ func (s *Server) sendRA() {
 	}
 
 	for _, addr := range addrs {
-		a := strings.Split(addr.String(), "/")[0]
-		ip := net.ParseIP(a)
-		if ip == nil {
+		ip, ipnet, err := net.ParseCIDR(addr.String())
+		_ = ipnet
+		if err != nil {
+			glog.Infof(err.Error())
 			continue
 		}
-		if ip.To4() != nil && strings.HasPrefix(a, "fe80") {
+		if ip.To4() == nil && strings.HasPrefix(addr.String(), "fe80") {
 			srcIP = ip
+			ipAddr = &net.IPAddr{IP: ip, Zone: "tap" + s.name}
 			break
 		}
 	}
-
+	if ipAddr == nil || srcIP == nil {
+		glog.Infof("ipv6 add missing for tap%s %s", s.name, srcIP)
+		return
+	}
 	res, err := s.ServeICMPv6(srcIP, &icmpv6.ICMPv6{Type: uint8(ipv6.ICMPTypeRouterSolicitation)})
 	if err != nil {
 		glog.Infof(err.Error())

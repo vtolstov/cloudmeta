@@ -112,7 +112,6 @@ func init() {
 }
 
 func (s *Server) Start() error {
-	s.Lock()
 	var buf string
 	var err error
 	var domain libvirt.VirDomain
@@ -185,8 +184,6 @@ func (s *Server) Start() error {
 		return fmt.Errorf("Failed to enable proxy_arp: %s sysctl -w net.ipv4.conf.tap%s.proxy_arp=1", aa, s.name)
 	}
 
-	defer s.Unlock()
-
 	glog.Infof("%s ListenAndServeUDPv4\n", s.name)
 	go s.ListenAndServeUDPv4()
 
@@ -214,76 +211,32 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop() (err error) {
-	s.RLock()
-	defer s.RUnlock()
-	defer func(s *Server) {
-		s.shutdown = true
-	}(s)
+	s.shutdown = true
+
 	if ok, err := s.libvirt.IsAlive(); ok && err == nil {
-		err = s.libvirt.UnrefAndCloseConnection()
-		if err != nil {
-			return err
-		}
+		s.libvirt.UnrefAndCloseConnection()
 	}
 
 	if s.ipv4conn != nil {
-		err = s.ipv4conn.Close()
-		if err != nil {
-			return err
-		}
+		s.ipv4conn.Close()
 	}
 	if s.ipv6conn != nil {
-		err = s.ipv6conn.Close()
-		if err != nil {
-			return err
-		}
+		s.ipv6conn.Close()
 	}
-
 	if s.metadata == nil {
 		return nil
 	}
-
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv6" && addr.Host == "true" {
-			/*
-				iface, err := net.InterfaceByName("tap" + s.name)
-				if err != nil {
-					return err
-				}
-				ip, net, err := net.ParseCIDR(addr.Address + "1/" + addr.Prefix)
-				if err != nil {
-					return err
-				}
-				err = netlink.NetworkLinkAddIp(iface, ip, net)
-				if err != nil {
-					return err
-				}
-			*/
 			// TODO: use netlink
 			cmd := exec.Command("ip", "-6", "r", "del", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
-			err = cmd.Run()
-			if err != nil {
-				return err
-			}
+			cmd.Run()
 		}
 	}
-
 	return nil
 }
 
 func bindToDevice(conn net.PacketConn, device string) error {
-	ptrVal := reflect.ValueOf(conn)
-	val := reflect.Indirect(ptrVal)
-	//next line will get you the net.netFD
-	fdmember := val.FieldByName("fd")
-	val1 := reflect.Indirect(fdmember)
-	netFdPtr := val1.FieldByName("sysfd")
-	fd := int(netFdPtr.Int())
-	//fd now has the actual fd for the socket
-	return syscall.SetsockoptString(fd, syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, device)
-}
-
-func bindToDevice2(conn *net.TCPListener, device string) error {
 	ptrVal := reflect.ValueOf(conn)
 	val := reflect.Indirect(ptrVal)
 	//next line will get you the net.netFD
