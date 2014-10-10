@@ -42,7 +42,7 @@ func (s *Server) ListenAndServeICMPv6() {
 		//s.RUnlock()
 
 		s.ipv6conn.SetReadDeadline(time.Now().Add(time.Second))
-		_, _, _, err := s.ipv6conn.ReadFrom(buffer)
+		_, _, src, err := s.ipv6conn.ReadFrom(buffer)
 		if err != nil {
 			continue
 		}
@@ -53,19 +53,18 @@ func (s *Server) ListenAndServeICMPv6() {
 			glog.Infof(err.Error())
 			continue
 		}
-
 		if req.Type == uint8(ipv6.ICMPTypeRouterSolicitation) {
-			s.sendRA()
+			s.sendRA(src)
 		}
 	}
 }
 
 func (s *Server) Unsolicitated() {
-	ticker := time.NewTicker(9000 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	quit := make(chan struct{})
 
 	time.Sleep(5 * time.Second)
-	s.sendRA()
+	s.sendRA(nil)
 
 	for {
 		select {
@@ -73,7 +72,7 @@ func (s *Server) Unsolicitated() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			s.sendRA()
+			s.sendRA(nil)
 			/*
 				default:
 					if s.shutdown {
@@ -85,9 +84,9 @@ func (s *Server) Unsolicitated() {
 	}
 }
 
-func (s *Server) sendRA() {
+func (s *Server) sendRA(src net.Addr) {
 	var srcIP net.IP
-	var ipAddr *net.IPAddr
+	var ipAddr net.Addr
 
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {
@@ -99,7 +98,6 @@ func (s *Server) sendRA() {
 		glog.Infof("can't get addresses from %s: %s\n", iface.Name, err.Error())
 		return
 	}
-
 	for _, addr := range addrs {
 		ip, ipnet, err := net.ParseCIDR(addr.String())
 		_ = ipnet
@@ -109,10 +107,21 @@ func (s *Server) sendRA() {
 		}
 		if ip.To4() == nil && strings.HasPrefix(addr.String(), "fe80") {
 			srcIP = ip
-			ipAddr = &net.IPAddr{IP: ip, Zone: "tap" + s.name}
+			if src == nil {
+				ipAddr = net.Addr(&net.IPAddr{IP: net.IPv6linklocalallnodes, Zone: "tap" + s.name})
+			} else {
+				ipAddr = src
+			}
 			break
 		}
 	}
+	/*
+		if src == nil {
+			log.Printf("unsolicitated %+v\n", ipAddr)
+		} else {
+			log.Printf("solicitated %+v\n", ipAddr)
+		}
+	*/
 	if ipAddr == nil || srcIP == nil {
 		glog.Infof("ipv6 add missing for tap%s %s", s.name, srcIP)
 		return
