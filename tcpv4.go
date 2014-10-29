@@ -100,6 +100,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	uri := path.Clean(r.URL.String())
 	switch uri {
+	case "/2009-04-04":
+		w.Write([]byte(""))
 	case "/":
 		w.Write([]byte("2009-04-04\nlatest\n"))
 	case "/2009-04-04/meta-data", "/latest/meta-data":
