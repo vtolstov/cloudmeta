@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"gopkg.in/yaml.v1"
 )
 
 func getServerByIP(ip string) (*Server, error) {
@@ -111,7 +114,70 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("0\n"))
 	case "/2009-04-04/meta-data/public-keys/0/openssh-key", "/latest/meta-data/public-keys/0/openssh-key":
 		w.Write([]byte(""))
-	case "/2009-04-04/user-data", "/latest/user-data":
+	case "/openstack/latest/meta_data.json":
+		type openstackMetaData struct {
+			Meta struct {
+				Username  string `json:"username"`
+				AdminPass string `json:"admin_pass"`
+				UUID      string `json:"uuid"`
+				Hostname  string `json:"hostname"`
+			} `json:"meta"`
+			Hostname string `json:"hostname"`
+		}
+		metadata := &openstackMetaData{}
+		metadata.Meta.Hostname = s.name + ".simplecloud.club"
+		metadata.Hostname = s.name + ".simplecloud.club"
+		domain, err := s.libvirt.LookupDomainByName(s.name)
+		var uuid string
+		if err == nil {
+			uuid, _ = domain.GetUUIDString()
+		}
+		metadata.Meta.UUID = uuid
+		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
+		req.URL = u
+		req.URL.Host = net.JoinHostPort(addr.String(), port)
+		req.Host = host
+		res, err = httpClient.Do(req)
+		if res != nil && res.Body != nil {
+			defer res.Body.Close()
+		}
+		if res == nil && err != nil {
+			w.Write([]byte("{}"))
+			return
+		}
+		buf, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			w.Write([]byte("{}"))
+			return
+		}
+
+		type User struct {
+			Name   string   `yaml:"name,omitempty"`
+			Passwd string   `yaml:"passwd,omitempty"`
+			SSHKey []string `yaml:"ssh-authorized-keys,omitempty"`
+		}
+
+		type CloudConfig struct {
+			AllowRootLogin bool   `yaml:"disable_root,omitempty"`
+			AllowRootSSH   bool   `yaml:"ssh_pwauth,omitempty"`
+			AllowResize    bool   `yaml:"resize_rootfs,omitempty"`
+			Users          []User `yaml:"users,omitempty"`
+		}
+		var cloudconfig CloudConfig
+		err = yaml.Unmarshal(buf, &cloudconfig)
+		if err != nil {
+			w.Write([]byte("{}"))
+			return
+		}
+		metadata.Meta.Username = cloudconfig.Users[0].Name
+		metadata.Meta.AdminPass = cloudconfig.Users[0].Passwd
+		buf, err = json.Marshal(metadata)
+		if err != nil {
+			w.Write([]byte("{}"))
+		} else {
+			w.Write([]byte(buf))
+		}
+	case "/2009-04-04/user-data", "/latest/user-data", "/openstack/latest/user_data":
 		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
 		req.URL = u
 		req.URL.Host = net.JoinHostPort(addr.String(), port)
