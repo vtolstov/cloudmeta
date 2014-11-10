@@ -149,7 +149,7 @@ func (s *Server) Start() error {
 		return err
 	}
 	var peer string
-	var cmd *exec.Cmd
+
 	for _, addr := range addrs {
 		a := strings.Split(addr.String(), "/")[0]
 		ip := net.ParseIP(a)
@@ -161,14 +161,22 @@ func (s *Server) Start() error {
 		}
 	}
 
+	var cmds []*exec.Cmd
+	for _, addr := range s.metadata.Network.IP {
+		if addr.Family == "ipv4" && addr.Host == "true" && addr.Peer != "" {
+			cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+		}
+		if addr.Family == "ipv6" && addr.Host == "false" {
+			cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent6_spoofing", addr.Address+","+"tap"+s.name))
+		}
+	}
+
 	metaIP := cleanExists(s.name, s.metadata.Network.IP)
-	var cmds []*exec.Command
 	for _, addr := range metaIP {
 		if addr.Family == "ipv4" && addr.Host == "true" {
 			// TODO: use netlink
 			if addr.Peer != "" {
 				cmds = append(cmds, exec.Command("ip", "-4", "a", "add", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
-				cmds = append(cmds, exec.Command("ipset", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
 			} else {
 				cmds = append(cmds, exec.Command("ip", "-4", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			}
@@ -182,13 +190,13 @@ func (s *Server) Start() error {
 			// TODO: use netlink
 			cmds = append(cmds, exec.Command("ip", "-6", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			cmds = append(cmds, exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200"))
-			cmds = append(cmds, exec.Command("ipset", "add", "prevent6_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
 		}
 	}
 
-	for cmd := range cmds {
+	for _, cmd := range cmds {
 		err = cmd.Run()
 		if err != nil {
+			glog.Infof("Failed to run cmd %s: %s", cmd, err)
 			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 		}
 	}
@@ -215,16 +223,13 @@ func (s *Server) Stop() (err error) {
 	if s.ipv6conn != nil {
 		s.ipv6conn.Close()
 	}
-	if s.metadata == nil {
-		return nil
-	}
-	var cmds []*exec.Command
 
+	var cmds []*exec.Cmd
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" {
 			// TODO: use netlink
 			if addr.Peer != "" {
-				cmds = append(cmds, exec.Command("ipset", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
+				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		}
 	}
@@ -232,15 +237,20 @@ func (s *Server) Stop() (err error) {
 		if addr.Family == "ipv6" && addr.Host == "true" {
 			// TODO: use netlink
 			cmds = append(cmds, exec.Command("ip", "-6", "r", "del", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200"))
-			cmds = append(cmds, exec.Command("ipset", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
+			cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 		}
 	}
 
-	for cmd := range cmds {
+	for _, cmd := range cmds {
 		err = cmd.Run()
 		if err != nil {
+			glog.Infof("Failed to run cmd %s: %s", cmd, err)
 			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 		}
+	}
+
+	if s.metadata == nil {
+		return nil
 	}
 
 	return nil
