@@ -236,7 +236,6 @@ func (s *Server) Stop() (err error) {
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv6" && addr.Host == "true" {
 			// TODO: use netlink
-			cmds = append(cmds, exec.Command("ip", "-6", "r", "del", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200"))
 			cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 		}
 	}
