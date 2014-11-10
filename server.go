@@ -162,47 +162,39 @@ func (s *Server) Start() error {
 	}
 
 	metaIP := cleanExists(s.name, s.metadata.Network.IP)
-
+	var cmds []*exec.Command
 	for _, addr := range metaIP {
 		if addr.Family == "ipv4" && addr.Host == "true" {
 			// TODO: use netlink
 			if addr.Peer != "" {
-				cmd = exec.Command("ip", "-4", "a", "add", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
+				cmds = append(cmds, exec.Command("ip", "-4", "a", "add", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
+				cmds = append(cmds, exec.Command("ipset", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
 			} else {
-				cmd = exec.Command("ip", "-4", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
-			}
-			err = cmd.Run()
-			if err != nil {
-				return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
+				cmds = append(cmds, exec.Command("ip", "-4", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			}
 		}
 	}
 
-	cmd = exec.Command("sysctl", "-w", "net.ipv4.conf.tap"+s.name+".proxy_arp=1")
-	aa, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Failed to enable proxy_arp: %s sysctl -w net.ipv4.conf.tap%s.proxy_arp=1", aa, s.name)
-	}
-
-	glog.Infof("%s ListenAndServeUDPv4\n", s.name)
-	go s.ListenAndServeUDPv4()
+	cmds = append(cmds, exec.Command("sysctl", "-w", "net.ipv4.conf.tap"+s.name+".proxy_arp=1"))
 
 	for _, addr := range metaIP {
 		if addr.Family == "ipv6" && addr.Host == "true" {
 			// TODO: use netlink
-			cmd := exec.Command("ip", "-6", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name)
-			err = cmd.Run()
-			if err != nil {
-				return fmt.Errorf("Failed to add ip for: %s", addr.Address+"/"+addr.Prefix)
-			}
-
-			cmd = exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
-			err = cmd.Run()
-			if err != nil {
-				return fmt.Errorf("Failed to replace route for: %s", addr.Address+"/"+addr.Prefix)
-			}
+			cmds = append(cmds, exec.Command("ip", "-6", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
+			cmds = append(cmds, exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200"))
+			cmds = append(cmds, exec.Command("ipset", "add", "prevent6_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
 		}
 	}
+
+	for cmd := range cmds {
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
+		}
+	}
+
+	glog.Infof("%s ListenAndServeUDPv4\n", s.name)
+	go s.ListenAndServeUDPv4()
 
 	glog.Infof("%s ListenAndServeICMPv6\n", s.name)
 	go s.ListenAndServeICMPv6()
@@ -226,13 +218,31 @@ func (s *Server) Stop() (err error) {
 	if s.metadata == nil {
 		return nil
 	}
+	var cmds []*exec.Command
+
+	for _, addr := range s.metadata.Network.IP {
+		if addr.Family == "ipv4" && addr.Host == "true" {
+			// TODO: use netlink
+			if addr.Peer != "" {
+				cmds = append(cmds, exec.Command("ipset", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
+			}
+		}
+	}
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv6" && addr.Host == "true" {
 			// TODO: use netlink
-			cmd := exec.Command("ip", "-6", "r", "del", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200")
-			cmd.Run()
+			cmds = append(cmds, exec.Command("ip", "-6", "r", "del", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200"))
+			cmds = append(cmds, exec.Command("ipset", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix, ",", "tap"+s.name))
 		}
 	}
+
+	for cmd := range cmds {
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
+		}
+	}
+
 	return nil
 }
 
