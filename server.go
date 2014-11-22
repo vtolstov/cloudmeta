@@ -49,6 +49,7 @@ type Metadata struct {
 }
 
 var httpconn net.Listener
+var virconn libvirt.VirConnection
 
 type Server struct {
 	// shutdown flag
@@ -65,9 +66,6 @@ type Server struct {
 
 	// RA conn
 	ipv6conn *ipv6.PacketConn
-
-	// Libvirt conn
-	libvirt libvirt.VirConnection
 
 	// thread safe
 	sync.RWMutex
@@ -120,12 +118,14 @@ func (s *Server) Start() error {
 		return errors.New("invalid server config")
 	}
 
-	s.libvirt, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
-	if err != nil {
-		return err
+	if ok, err := virconn.IsAlive(); !ok || err != nil {
+		virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
+		if err != nil {
+			glog.Errorf("failed to connect to libvirt: %s", err.Error())
+		}
 	}
 
-	domain, err = s.libvirt.LookupDomainByName(s.name)
+	domain, err = virconn.LookupDomainByName(s.name)
 	if err != nil {
 		return err
 	}
@@ -212,10 +212,6 @@ func (s *Server) Start() error {
 
 func (s *Server) Stop() (err error) {
 	s.shutdown = true
-
-	if ok, err := s.libvirt.IsAlive(); ok && err == nil {
-		s.libvirt.UnrefAndCloseConnection()
-	}
 
 	if s.ipv4conn != nil {
 		s.ipv4conn.Close()

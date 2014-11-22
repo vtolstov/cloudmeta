@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/alexzorin/libvirt-go"
 	"github.com/golang/glog"
 
 	netlink "./netlink"
@@ -20,6 +21,12 @@ func main() {
 	if err != nil {
 		glog.Error(err.Error())
 	}
+	defer nl.Close()
+	virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
+	if err != nil {
+		glog.Errorf("failed to connect to libvirt: %s", err.Error())
+	}
+	defer virconn.UnrefAndCloseConnection()
 
 	ifaces, err := net.Interfaces()
 	if err != nil {

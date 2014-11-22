@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexzorin/libvirt-go"
 	"github.com/golang/glog"
 	"gopkg.in/yaml.v1"
 )
@@ -129,7 +130,15 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		metadata := &openstackMetaData{}
 		metadata.Meta.Hostname = s.name + ".simplecloud.club"
 		metadata.Hostname = s.name + ".simplecloud.club"
-		domain, err := s.libvirt.LookupDomainByName(s.name)
+
+		if ok, err := virconn.IsAlive(); !ok || err != nil {
+			virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
+			if err != nil {
+				glog.Errorf("failed to connect to libvirt: %s", err.Error())
+			}
+		}
+
+		domain, err := virconn.LookupDomainByName(s.name)
 		var uuid string
 		if err == nil {
 			uuid, _ = domain.GetUUIDString()
