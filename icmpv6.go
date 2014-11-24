@@ -72,6 +72,9 @@ func (s *Server) Unsolicitated() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
+			if s.shutdown {
+				return
+			}
 			s.sendRA(nil)
 			/*
 				default:

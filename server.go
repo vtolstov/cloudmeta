@@ -211,6 +211,9 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop() (err error) {
+	if s == nil {
+		return nil
+	}
 	s.shutdown = true
 
 	if s.ipv4conn != nil {
@@ -221,33 +224,34 @@ func (s *Server) Stop() (err error) {
 	}
 
 	var cmds []*exec.Cmd
-	for _, addr := range s.metadata.Network.IP {
-		if addr.Family == "ipv4" && addr.Host == "true" {
-			// TODO: use netlink
-			if addr.Peer != "" {
-				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+	if s.metadata != nil && len(s.metadata.Network.IP) > 0 {
+		for _, addr := range s.metadata.Network.IP {
+			if addr.Family == "ipv4" && addr.Host == "true" {
+				// TODO: use netlink
+				if addr.Peer != "" {
+					cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+				}
+			}
+		}
+		for _, addr := range s.metadata.Network.IP {
+			if addr.Family == "ipv6" && addr.Host == "true" {
+				// TODO: use netlink
+				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+			}
+		}
+
+		for _, cmd := range cmds {
+			err = cmd.Run()
+			if err != nil {
+				glog.Infof("Failed to run cmd %s: %s", cmd, err)
+				return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 			}
 		}
 	}
-	for _, addr := range s.metadata.Network.IP {
-		if addr.Family == "ipv6" && addr.Host == "true" {
-			// TODO: use netlink
-			cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
-		}
-	}
-
-	for _, cmd := range cmds {
-		err = cmd.Run()
-		if err != nil {
-			glog.Infof("Failed to run cmd %s: %s", cmd, err)
-			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
-		}
-	}
-
 	if s.metadata == nil {
 		return nil
 	}
-
+	s.metadata = nil
 	return nil
 }
 
