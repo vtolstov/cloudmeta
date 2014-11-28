@@ -125,7 +125,11 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				UUID      string `json:"uuid"`
 				Hostname  string `json:"hostname"`
 			} `json:"meta"`
+			UUID     string `json:"uuid"`
 			Hostname string `json:"hostname"`
+			SSHKey   struct {
+				Root string
+			} `json:"public_keys,omitempty"`
 		}
 		metadata := &openstackMetaData{}
 		metadata.Meta.Hostname = s.name + ".simplecloud.club"
@@ -144,6 +148,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			uuid, _ = domain.GetUUIDString()
 		}
 		metadata.Meta.UUID = uuid
+		metadata.UUID = uuid
 		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
 		req.URL = u
 		req.URL.Host = net.JoinHostPort(addr.String(), port)
@@ -182,6 +187,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		metadata.Meta.Username = cloudconfig.Users[0].Name
 		metadata.Meta.AdminPass = cloudconfig.Users[0].Passwd
+		metadata.SSHKey.Root = strings.Join(cloudconfig.Users[0].SSHKey, "\n")
 		buf, err = json.Marshal(metadata)
 		if err != nil {
 			w.Write([]byte("{}"))
