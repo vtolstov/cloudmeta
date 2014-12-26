@@ -117,6 +117,10 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("0\n"))
 	case "/2009-04-04/meta-data/public-keys/0/openssh-key", "/latest/meta-data/public-keys/0/openssh-key":
 		w.Write([]byte(""))
+	case "/openstack":
+		w.Write([]byte("latest"))
+	case "/openstack/latest\n":
+		w.Write([]byte("meta_data.json\nuser_data\n"))
 	case "/openstack/latest/meta_data.json":
 		type openstackMetaData struct {
 			Meta struct {
@@ -128,7 +132,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			UUID     string `json:"uuid"`
 			Hostname string `json:"hostname"`
 			SSHKey   struct {
-				Root string
+				Root string `json:"root"`
 			} `json:"public_keys,omitempty"`
 		}
 		metadata := &openstackMetaData{}
