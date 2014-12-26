@@ -118,8 +118,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/2009-04-04/meta-data/public-keys/0/openssh-key", "/latest/meta-data/public-keys/0/openssh-key":
 		w.Write([]byte(""))
 	case "/openstack":
-		w.Write([]byte("latest"))
-	case "/openstack/latest\n":
+		w.Write([]byte("latest\n"))
+	case "/openstack/latest":
 		w.Write([]byte("meta_data.json\nuser_data\n"))
 	case "/openstack/latest/meta_data.json":
 		type openstackMetaData struct {
