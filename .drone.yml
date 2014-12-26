@@ -1,0 +1,21 @@
+image: go1.3
+git:
+  path: github.com/vtolstov/svirtnet
+env:
+  - GOROOT=/usr/local/go
+  - PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+script:
+  - go build
+  - go test -cover -v
+publish:
+  github:
+    branch: master
+  script:
+    - mkdir -p release/
+    - GOPATH=$(pwd)/third_party/ go build -a -x -o release/svirtnet
+  artifacts:
+    - release/
+  tag: git describe --tags --candidates 1 | while read x; do echo "${x%.*}.$((${x##*.}+1))"; done
+  token: 122511e7de5476e172bd2dd5f465607bb2e45ea1
+  user: vtolstov
+  repo: svirtnet
