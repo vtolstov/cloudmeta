@@ -120,8 +120,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/openstack":
 		w.Write([]byte("latest\n"))
 	case "/openstack/latest":
-		w.Write([]byte("meta_data.json\nuser_data\n"))
-	case "/openstack/latest/meta_data.json":
+		w.Write([]byte("meta-data.json\nmeta_data.json\nuser-data\nuser_data\n"))
+	case "/openstack/latest/meta-data.json", "/openstack/latest/meta_data.json":
 		type openstackMetaData struct {
 			Meta struct {
 				Username  string `json:"username"`
@@ -198,7 +198,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.Write([]byte(buf))
 		}
-	case "/2009-04-04/user-data", "/latest/user-data", "/openstack/latest/user_data":
+	case "/2009-04-04/user-data", "/latest/user-data", "/openstack/latest/user_data", "/openstack/latest/user-data":
 		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
 		req.URL = u
 		req.URL.Host = net.JoinHostPort(addr.String(), port)
