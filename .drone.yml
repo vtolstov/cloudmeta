@@ -5,8 +5,8 @@ env:
   - GOROOT=/usr/local/go
   - PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 script:
-  - go build
-  - go test -cover -v
+  - GOPATH=$(pwd)/third_party/ go build -a -x -o release/svirtnet
+  - GOPATH=$(pwd)/third_party/ go test -cover -v
 publish:
   github:
     branch: master
