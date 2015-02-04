@@ -22,9 +22,7 @@ func getServerByIP(ip string) (*Server, error) {
 		if s.metadata == nil {
 			continue
 		}
-		glog.Warningf("ip %+v http\n", ip)
 		for _, addr := range s.metadata.Network.IP {
-			glog.Warningf("%+v http\n", addr)
 			if addr.Gateway == "false" && addr.Address == ip {
 				return s, nil
 			}
