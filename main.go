@@ -2,57 +2,97 @@ package main
 
 import (
 	"flag"
+	"log"
+	"log/syslog"
 	"net"
+	"os"
 	"strings"
 	"syscall"
 
 	"github.com/alexzorin/libvirt-go"
-	"github.com/golang/glog"
-
-	netlink "./netlink"
+	"github.com/vishvananda/netlink/nl"
 )
 
 func init() {
 	flag.Parse()
 }
 
-func main() {
-	nl, err := netlink.NewNetlinkSocket(netlink.RTMGRP_LINK)
-	if err != nil {
-		glog.Error(err.Error())
-	}
-	defer nl.Close()
-	virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
-	if err != nil {
-		glog.Errorf("failed to connect to libvirt: %s", err.Error())
-	}
-	defer virconn.UnrefAndCloseConnection()
+var kvm bool
+var xen bool
+var l *log.Logger
 
+func main() {
+	l, err := syslog.Dial("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, "svirtnet")
+	if err != nil {
+		log.Fatalf("Failed to connect to syslog: %s\n", err.Error())
+		os.Exit(1)
+	}
+	defer l.Close()
+
+	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
+	if err != nil {
+		l.Err(err.Error())
+		os.Exit(1)
+	}
+	defer nlink.Close()
+
+	_, err = os.Stat("/sys/module/kvm")
+	if err == nil {
+		kvm = true
+	}
+	_, err = os.Stat("/sys/module/xenfs")
+	if err == nil {
+		xen = true
+	}
+
+	if !kvm && !xen {
+		l.Err("hypervisor not detected")
+		os.Exit(1)
+	}
+
+	var viruri string
+	if kvm {
+		viruri = "qemu:///system"
+	}
+
+	if xen {
+		viruri = "xen:///"
+	}
+
+	virconn, err = libvirt.NewVirConnectionReadOnly(viruri)
+	if err == nil {
+		defer virconn.UnrefAndCloseConnection()
+	} else {
+		l.Info("failed to connect to libvirt: " + err.Error())
+		os.Exit(1)
+	}
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		glog.Error(err.Error())
+		l.Err(err.Error())
+		os.Exit(1)
 	}
 
 	for _, iface := range ifaces {
 		name := iface.Name
-		if !strings.HasPrefix(name, "tap") {
+		l.Info("Check iface " + name)
+		if !strings.HasPrefix(name, "tap") && !strings.HasPrefix(name, "vif") {
 			continue
 		}
 		if _, ok := servers[name[3:]]; !ok {
 			s := &Server{name: name[3:]}
 			servers[name[3:]] = s
-			glog.Infof("%s start serving\n", name[3:])
+			l.Info(name[3:] + " start serving")
 			go s.Start()
 		}
 	}
 
-	glog.Info("ListenAndServeTCPv4")
+	l.Info("ListenAndServeTCPv4")
 	go ListenAndServeTCPv4()
 
 	for {
-		msgs, err := nl.Receive()
+		msgs, err := nlink.Recieve()
 		if err != nil {
-			glog.Warningf("nl err: %s\n", err.Error())
+			l.Warning("netlink err: " + err.Error())
 			continue
 		}
 	loop:
@@ -63,19 +103,19 @@ func main() {
 			case syscall.RTM_NEWLINK:
 				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
 				if err != nil {
-					glog.Warningf("nl err: %s\n", err.Error())
+					l.Warning("netlink err: " + err.Error())
 					continue
 				}
 				for _, attr := range attrs {
 					switch attr.Attr.Type {
 					case syscall.IFLA_IFNAME:
 						name := string(attr.Value[:len(attr.Value)-1])
-						if strings.HasPrefix(name, "tap") {
+						if strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vif") {
 							if _, ok := servers[name[3:]]; !ok {
 								s := &Server{name: name[3:]}
 								servers[name[3:]] = s
 								go s.Start()
-								glog.Infof("%s start serving\n", name[3:])
+								l.Info(name[3:] + " start serving")
 							}
 						}
 					}
@@ -83,17 +123,17 @@ func main() {
 			case syscall.RTM_DELLINK:
 				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
 				if err != nil {
-					glog.Warningf("nl err: %s\n", err.Error())
+					l.Warning("netlink err: " + err.Error())
 					continue
 				}
 				for _, attr := range attrs {
 					switch attr.Attr.Type {
 					case syscall.IFLA_IFNAME:
 						name := string(attr.Value[:len(attr.Value)-1])
-						if strings.HasPrefix(name, "tap") {
+						if strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vif") {
 							if s, ok := servers[name[3:]]; ok {
 								go s.Stop()
-								glog.Infof("%s stop serving\n", name[3:])
+								l.Info(name[3:] + " stop serving")
 								delete(servers, name[3:])
 							}
 						}

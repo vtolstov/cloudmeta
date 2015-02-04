@@ -6,10 +6,10 @@ import (
 	"net"
 	"time"
 
-	"code.google.com/p/go.net/ipv4"
-	"code.google.com/p/gopacket"
-	"code.google.com/p/gopacket/layers"
 	"github.com/golang/glog"
+	"github.com/vtolstov/gopacket"
+	"github.com/vtolstov/gopacket/layers"
+	"golang.org/x/net/ipv4"
 )
 
 func (s *Server) ListenAndServeUDPv4() {
@@ -158,8 +158,8 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 	opt := dhcpreq.Options[0]
 	switch opt.Type {
 	case layers.DHCP_OPT_MESSAGE_TYPE:
-		switch layers.Operation(opt.Data[0]) {
-		case layers.Operation(layers.DHCP_MSG_DISCOVER):
+		switch layers.DHCPOperation(opt.Data[0]) {
+		case layers.DHCPOperation(layers.DHCP_MSG_DISCOVER):
 			dhcpres, err = layers.NewDHCPOffer(dhcpreq.Xid)
 			if err != nil {
 				return nil, err
@@ -167,27 +167,27 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			copy(dhcpres.ClientHWAddr, mac[:dhcpres.HardwareLen])
 			copy(dhcpres.YourIP, ip.To4())
 			copy(dhcpres.ServerIP, gw.To4())
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(3, []byte(gw.To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(15, []byte("simplecloud.club")))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name+".simplecloud.club")))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(1, []byte(net.IP(ipnet.Mask).To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(3, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(15, []byte("simplecloud.club")))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(12, []byte(s.name+".simplecloud.club")))
 			var b [8]byte
 			var bs []byte
 			bs = b[:4]
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(51, bs))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(54, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(51, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(54, []byte(gw.To4())))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*50))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T1, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(layers.DHCP_OPT_T1, bs))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*88))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T2, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(layers.DHCP_OPT_T2, bs))
 			bs = b[:2]
 			binary.BigEndian.PutUint16(bs, uint16(1500))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_INTERFACE_MTU, bs))
-		case layers.Operation(layers.DHCP_MSG_REQUEST):
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(layers.DHCP_OPT_INTERFACE_MTU, bs))
+		case layers.DHCPOperation(layers.DHCP_MSG_REQUEST):
 			dhcpres, err = layers.NewDHCPAck(dhcpreq.Xid)
 			if err != nil {
 				return nil, err
@@ -195,30 +195,30 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			copy(dhcpres.ClientHWAddr, mac[:dhcpres.HardwareLen])
 			copy(dhcpres.YourIP, ip.To4())
 			copy(dhcpres.ServerIP, gw.To4())
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(1, []byte(net.IP(ipnet.Mask).To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(3, []byte(gw.To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(15, []byte("simplecloud.club")))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(12, []byte(s.name+".simplecloud.club")))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(1, []byte(net.IP(ipnet.Mask).To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(3, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(5, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(6, []byte(net.ParseIP("8.8.8.8").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(28, []byte(net.ParseIP("85.143.223.255").To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(15, []byte("simplecloud.club")))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(12, []byte(s.name+".simplecloud.club")))
 			var b [8]byte
 			var bs []byte
 			bs = b[:4]
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(51, bs))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(54, []byte(gw.To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(51, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(54, []byte(gw.To4())))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*50))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T1, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(layers.DHCP_OPT_T1, bs))
 			binary.BigEndian.PutUint32(bs, uint32(leaseTime/100*88))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_T2, bs))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(layers.DHCP_OPT_T2, bs))
 			bs = b[:2]
 			binary.BigEndian.PutUint16(bs, uint16(1500))
-			dhcpres.Options = append(dhcpres.Options, layers.NewOption(layers.DHCP_OPT_INTERFACE_MTU, bs))
-		case layers.Operation(layers.DHCP_MSG_OFFER), layers.Operation(layers.DHCP_MSG_ACK):
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(layers.DHCP_OPT_INTERFACE_MTU, bs))
+		case layers.DHCPOperation(layers.DHCP_MSG_OFFER), layers.DHCPOperation(layers.DHCP_MSG_ACK):
 			return nil, nil
 		default:
-			return nil, fmt.Errorf("unk dhcp msg: %d\n", layers.Operation(opt.Data[0]))
+			return nil, fmt.Errorf("unk dhcp msg: %d\n", layers.DHCPOperation(opt.Data[0]))
 		}
 	}
 

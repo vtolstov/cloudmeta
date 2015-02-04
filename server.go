@@ -15,8 +15,9 @@ import (
 
 	"crypto/tls"
 
-	"code.google.com/p/go.net/ipv4"
-	"code.google.com/p/go.net/ipv6"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
+
 	"github.com/alexzorin/libvirt-go"
 	"github.com/golang/glog"
 )

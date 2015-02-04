@@ -22,7 +22,9 @@ func getServerByIP(ip string) (*Server, error) {
 		if s.metadata == nil {
 			continue
 		}
+		glog.Warningf("ip %+v http\n", ip)
 		for _, addr := range s.metadata.Network.IP {
+			glog.Warningf("%+v http\n", addr)
 			if addr.Gateway == "false" && addr.Address == ip {
 				return s, nil
 			}
@@ -115,8 +117,49 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(""))
 	case "/2009-04-04/meta-data/public-keys", "/latest/meta-data/public-keys":
 		w.Write([]byte("0\n"))
+	case "/2009-04-04/meta-data/public-keys/0", "/latest/meta-data/public-keys/0":
+		w.Write([]byte("openssh-key\n"))
 	case "/2009-04-04/meta-data/public-keys/0/openssh-key", "/latest/meta-data/public-keys/0/openssh-key":
-		w.Write([]byte(""))
+		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
+		req.URL = u
+		req.URL.Host = net.JoinHostPort(addr.String(), port)
+		req.Host = host
+		res, err = httpClient.Do(req)
+		if res != nil && res.Body != nil {
+			defer res.Body.Close()
+		}
+		if res == nil && err != nil {
+			glog.Warningf("%s http err: %s\n", s.name, err.Error())
+			w.Write([]byte("\n"))
+			return
+		}
+		buf, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			glog.Warningf("%s http err: %s\n", s.name, err.Error())
+			w.Write([]byte("\n"))
+			return
+		}
+
+		type User struct {
+			Name   string   `yaml:"name,omitempty"`
+			Passwd string   `yaml:"passwd,omitempty"`
+			SSHKey []string `yaml:"ssh-authorized-keys,omitempty"`
+		}
+
+		type CloudConfig struct {
+			AllowRootLogin bool   `yaml:"disable_root,omitempty"`
+			AllowRootSSH   bool   `yaml:"ssh_pwauth,omitempty"`
+			AllowResize    bool   `yaml:"resize_rootfs,omitempty"`
+			Users          []User `yaml:"users,omitempty"`
+		}
+		var cloudconfig CloudConfig
+		err = yaml.Unmarshal(buf, &cloudconfig)
+		if err != nil {
+			glog.Warningf("%s http err: %s\n", s.name, err.Error())
+			w.Write([]byte("\n"))
+			return
+		}
+		w.Write([]byte(strings.Join(cloudconfig.Users[0].SSHKey, "\n") + "\n"))
 	case "/openstack":
 		w.Write([]byte("latest\n"))
 	case "/openstack/latest":
