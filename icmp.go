@@ -1,11 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"time"
-
-	"github.com/golang/glog"
 
 	"encoding/binary"
 	"errors"
@@ -18,17 +17,17 @@ func (s *Server) ListenAndServeICMPv6() {
 	ipAddr := &net.IPAddr{IP: net.IPv6linklocalallrouters, Zone: "tap" + s.name}
 	conn, err := net.ListenIP("ip6:58", ipAddr)
 	if err != nil {
-		glog.Errorf(err.Error())
+		l.Info("error: " + err.Error())
 		return
 	}
 	if err = bindToDevice(conn, "tap"+s.name); err != nil {
-		glog.Errorf(err.Error())
+		l.Info("error: " + err.Error())
 		return
 	}
 	s.ipv6conn = ipv6.NewPacketConn(conn)
 
 	if err = s.ipv6conn.SetControlMessage(ipv6.FlagDst, true); err != nil {
-		glog.Warningf(err.Error())
+		l.Info(err.Error())
 		return
 	}
 
@@ -47,13 +46,14 @@ func (s *Server) ListenAndServeICMPv6() {
 		s.ipv6conn.SetReadDeadline(time.Now().Add(time.Second))
 		_, _, src, err := s.ipv6conn.ReadFrom(buffer)
 		if err != nil {
+			//			l.Info(err.Error())
 			continue
 		}
 
 		req := &ICMPv6{}
 		err = req.Unmarshal(buffer)
 		if err != nil {
-			glog.Infof(err.Error())
+			//		l.Info(err.Error())
 			continue
 		}
 		if req.Type == uint8(ipv6.ICMPTypeRouterSolicitation) {
@@ -96,19 +96,19 @@ func (s *Server) sendRA(src net.Addr) {
 
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {
-		glog.Infof("can't find iface %s: %s\n", "tap"+s.name, err.Error())
+		l.Info("can't find iface tap" + s.name + " " + err.Error())
 		return
 	}
 	addrs, err := iface.Addrs()
 	if err != nil {
-		glog.Infof("can't get addresses from %s: %s\n", iface.Name, err.Error())
+		l.Info("can't get addresses from " + iface.Name + " " + err.Error())
 		return
 	}
 	for _, addr := range addrs {
 		ip, ipnet, err := net.ParseCIDR(addr.String())
 		_ = ipnet
 		if err != nil {
-			glog.Infof(err.Error())
+			l.Info(err.Error())
 			continue
 		}
 		if ip.To4() == nil && strings.HasPrefix(addr.String(), "fe80") {
@@ -129,12 +129,12 @@ func (s *Server) sendRA(src net.Addr) {
 		}
 	*/
 	if ipAddr == nil || srcIP == nil {
-		glog.Infof("ipv6 add missing for tap%s %s", s.name, srcIP)
+		l.Info(fmt.Sprintf("ipv6 add missing for tap %s %s", s.name, srcIP))
 		return
 	}
 	res, err := s.ServeICMPv6(srcIP, &ICMPv6{Type: uint8(ipv6.ICMPTypeRouterSolicitation)})
 	if err != nil {
-		glog.Infof(err.Error())
+		l.Info(err.Error())
 		return
 	}
 
@@ -142,16 +142,15 @@ func (s *Server) sendRA(src net.Addr) {
 		buf := make([]byte, msg.Len())
 		buf, err = msg.Marshal()
 		if err != nil {
-			glog.Infof("%s err: %s", s.name, err.Error())
+			l.Info(fmt.Sprintf("%s err %s", s.name, err.Error()))
 			continue
 		}
 
 		wcm := ipv6.ControlMessage{HopLimit: 255}
 		wcm.Dst = net.IPv6linklocalallnodes
 		wcm.IfIndex = iface.Index
-		_, err = s.ipv6conn.WriteTo(buf, &wcm, ipAddr)
-		if err != nil {
-			glog.Infof("%s err: %s", s.name, err.Error())
+		if _, err = s.ipv6conn.WriteTo(buf, &wcm, ipAddr); err != nil {
+			l.Info(fmt.Sprintf("%s err %s", s.name, err.Error()))
 			continue
 		}
 	}

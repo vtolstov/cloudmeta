@@ -6,7 +6,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/vtolstov/gopacket"
 	"github.com/vtolstov/gopacket/layers"
 	"golang.org/x/net/ipv4"
@@ -16,22 +15,22 @@ func (s *Server) ListenAndServeUDPv4() {
 	ipAddr := &net.IPAddr{IP: net.IPv4zero}
 	conn, err := net.ListenIP("ip4:udp", ipAddr)
 	if err != nil {
-		glog.Errorf(err.Error())
+		l.Info(err.Error())
 		return
 	}
 	if err = bindToDevice(conn, "tap"+s.name); err != nil {
-		glog.Errorf(err.Error())
+		l.Info(err.Error())
 		return
 	}
 
 	s.ipv4conn, err = ipv4.NewRawConn(conn)
 	if err != nil {
-		glog.Errorf(err.Error())
+		l.Info(err.Error())
 		return
 	}
 
 	if err = s.ipv4conn.SetControlMessage(ipv4.FlagDst, true); err != nil {
-		glog.Warningf(err.Error())
+		l.Warning(err.Error())
 		return
 	}
 
@@ -45,7 +44,8 @@ func (s *Server) ListenAndServeUDPv4() {
 	}
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {
-		glog.Errorf(err.Error())
+		l.Info(err.Error())
+		return
 	}
 
 	_ = gw
@@ -77,7 +77,7 @@ func (s *Server) ListenAndServeUDPv4() {
 					continue
 				}
 			default:
-				glog.Warningf(err.Error())
+				l.Warning(err.Error())
 				return
 			}
 		}
@@ -101,7 +101,7 @@ func (s *Server) ListenAndServeUDPv4() {
 
 					dhcp4res, err := s.ServeUDPv4(&dhcp4req)
 					if err != nil {
-						glog.Warningf(err.Error())
+						l.Warning(err.Error())
 						continue
 					}
 
@@ -118,7 +118,7 @@ func (s *Server) ListenAndServeUDPv4() {
 					wcm.IfIndex = iface.Index
 					err = s.ipv4conn.WriteTo(&ipv4.Header{Len: 20, TOS: hdr.TOS, TotalLen: 20 + int(len(buf.Bytes())), FragOff: 0, TTL: 255, Protocol: int(layers.IPProtocolUDP), Src: gw.To4(), Dst: net.IPv4bcast.To4()}, buf.Bytes(), &wcm)
 					if err != nil {
-						glog.Warningf(err.Error())
+						l.Warning(err.Error())
 						continue
 					}
 				}
@@ -130,7 +130,7 @@ func (s *Server) ListenAndServeUDPv4() {
 func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 	dhcpres := &layers.DHCPv4{}
 
-	glog.Infof("%s dhcpv4 req: %+v\n", s.name, dhcpreq)
+	l.Info(fmt.Sprintf("%s dhcpv4 req: %+v\n", s.name, dhcpreq))
 
 	leaseTime := 6000
 	var ip net.IP

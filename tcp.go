@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/alexzorin/libvirt-go"
-	"github.com/golang/glog"
 	"gopkg.in/yaml.v1"
 )
 
@@ -35,7 +34,7 @@ func ListenAndServeTCPv4() {
 	ipAddr := &net.TCPAddr{IP: net.IPv4zero, Port: 80}
 	conn, err := net.Listen("tcp", ipAddr.String())
 	if err != nil {
-		glog.Errorf(err.Error())
+		l.Info(err.Error())
 		return
 	}
 
@@ -63,11 +62,11 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	host, _, _ = net.SplitHostPort(r.RemoteAddr)
 	s, err := getServerByIP(host)
 	if err != nil {
-		glog.Infof("err: %s %+v\n", err, r)
+		l.Info(fmt.Sprintf("err: %s %+v\n", err, r))
 		w.WriteHeader(503)
 		return
 	}
-	glog.Infof("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL)
+	l.Info(fmt.Sprintf("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL))
 
 	var res *http.Response
 
@@ -87,7 +86,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	addrs, err := net.LookupIP(host)
 	if err != nil {
-		glog.Warningf("%s http err: %s\n", s.name, err.Error())
+		l.Warning(fmt.Sprintf("%s http err: %s\n", s.name, err.Error()))
 		w.WriteHeader(503)
 		return
 	}
@@ -127,13 +126,13 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer res.Body.Close()
 		}
 		if res == nil && err != nil {
-			glog.Warningf("%s http err: %s\n", s.name, err.Error())
+			l.Warning(fmt.Sprintf("%s http err: %s\n", s.name, err.Error()))
 			w.Write([]byte("\n"))
 			return
 		}
 		buf, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			glog.Warningf("%s http err: %s\n", s.name, err.Error())
+			l.Warning(fmt.Sprintf("%s http err: %s\n", s.name, err.Error()))
 			w.Write([]byte("\n"))
 			return
 		}
@@ -153,7 +152,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var cloudconfig CloudConfig
 		err = yaml.Unmarshal(buf, &cloudconfig)
 		if err != nil {
-			glog.Warningf("%s http err: %s\n", s.name, err.Error())
+			l.Warning(fmt.Sprintf("%s http err: %s\n", s.name, err.Error()))
 			w.Write([]byte("\n"))
 			return
 		}
@@ -183,7 +182,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if ok, err := virconn.IsAlive(); !ok || err != nil {
 			virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
 			if err != nil {
-				glog.Errorf("failed to connect to libvirt: %s", err.Error())
+				l.Info(fmt.Sprintf("failed to connect to libvirt: %s", err.Error()))
+				return
 			}
 		}
 
@@ -249,13 +249,13 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer res.Body.Close()
 		}
 		if res == nil && err != nil {
-			glog.Warningf("%s http err: %s\n", s.name, err.Error())
+			l.Warning(fmt.Sprintf("%s http err: %s\n", s.name, err.Error()))
 			w.WriteHeader(503)
 			return
 		}
 		io.Copy(w, res.Body)
 	default:
-		glog.Infof("http: %+v\n", r)
+		l.Info(fmt.Sprintf("http: %+v\n", r))
 		w.WriteHeader(503)
 	}
 	return

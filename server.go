@@ -13,13 +13,14 @@ import (
 	"syscall"
 	"time"
 
+	"bazil.org/fuse"
+
 	"crypto/tls"
 
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 
 	"github.com/alexzorin/libvirt-go"
-	"github.com/golang/glog"
 )
 
 type IP struct {
@@ -44,13 +45,26 @@ type Network struct {
 	IP []IP `xml:"ip"`
 }
 
+type ISO struct {
+	Disks []ISODisk `xml:"disk"`
+}
+
+type ISODisk struct {
+	Name   string `xml:"driver->name,attr"`
+	Type   string `xml:"driver->type,attr"`
+	Source string `xml:"source->url,attr"`
+	Target string `xml:"target->name,attr"`
+}
+
 type Metadata struct {
 	Network     Network     `xml:"network"`
 	CloudConfig CloudConfig `xml:"cloud-config"`
+	ISO         ISO         `xml:"iso,omitempty"`
 }
 
 var httpconn net.Listener
 var virconn libvirt.VirConnection
+var fuseconn *fuse.Conn
 
 type Server struct {
 	// shutdown flag
@@ -122,31 +136,37 @@ func (s *Server) Start() error {
 	if ok, err := virconn.IsAlive(); !ok || err != nil {
 		virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
 		if err != nil {
-			glog.Errorf("failed to connect to libvirt: %s", err.Error())
+			l.Info("failed to connect to libvirt:" + err.Error())
+			return err
 		}
 	}
 
 	domain, err = virconn.LookupDomainByName(s.name)
 	if err != nil {
+		l.Info("failed to lookup to libvirt: " + err.Error())
 		return err
 	}
 
 	buf, err = domain.GetMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, "http://simplecloud.ru/", libvirt.VIR_DOMAIN_MEM_LIVE)
 	if err != nil {
+		l.Info("failed to get metadata from libvirt: " + err.Error())
 		return err
 	}
 	s.metadata = &Metadata{}
 	if err = xml.Unmarshal([]byte(buf), s.metadata); err != nil {
+		l.Info("failed to get unmarshal xml from libvirt: " + err.Error())
 		return err
 	}
 
 	iface, err := net.InterfaceByName("vlan1001")
 	if err != nil {
+		l.Info("failed to get vlan1001: " + err.Error())
 		return err
 	}
 
 	addrs, err := iface.Addrs()
 	if err != nil {
+		l.Info("failed to get ifaces: " + err.Error())
 		return err
 	}
 	var peer string
@@ -197,15 +217,15 @@ func (s *Server) Start() error {
 	for _, cmd := range cmds {
 		err = cmd.Run()
 		if err != nil {
-			glog.Infof("Failed to run cmd %s: %s", cmd, err)
+			l.Info(fmt.Sprintf("Failed to run cmd %s: %s", cmd, err))
 			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 		}
 	}
 
-	glog.Infof("%s ListenAndServeUDPv4\n", s.name)
+	l.Info(s.name + " ListenAndServeUDPv4")
 	go s.ListenAndServeUDPv4()
 
-	glog.Infof("%s ListenAndServeICMPv6\n", s.name)
+	l.Info(s.name + " ListenAndServeICMPv6")
 	go s.ListenAndServeICMPv6()
 
 	select {}
@@ -244,7 +264,7 @@ func (s *Server) Stop() (err error) {
 		for _, cmd := range cmds {
 			err = cmd.Run()
 			if err != nil {
-				glog.Infof("Failed to run cmd %s: %s", cmd, err)
+				l.Info(fmt.Sprintf("Failed to run cmd %s: %s", cmd, err))
 				return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 			}
 		}

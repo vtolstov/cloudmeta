@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"log/syslog"
 	"net"
@@ -19,15 +20,25 @@ func init() {
 
 var kvm bool
 var xen bool
-var l *log.Logger
+var l *syslog.Writer
 
 func main() {
-	l, err := syslog.Dial("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, "svirtnet")
+	var err error
+	l, err = syslog.Dial("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, "svirtnet")
 	if err != nil {
 		log.Fatalf("Failed to connect to syslog: %s\n", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
+
+	_, err = os.Stat("/srv/iso")
+	if err != nil {
+		err = os.MkdirAll("/srv/iso", 0770)
+		if err != nil {
+			l.Info(fmt.Sprintf("Failed to create dir: %s\n", err.Error()))
+			os.Exit(1)
+		}
+	}
 
 	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
 	if err != nil {
@@ -66,6 +77,7 @@ func main() {
 		l.Info("failed to connect to libvirt: " + err.Error())
 		os.Exit(1)
 	}
+
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		l.Err(err.Error())
