@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"log/syslog"
 	"net"
@@ -31,14 +30,16 @@ func main() {
 	}
 	defer l.Close()
 
-	_, err = os.Stat("/srv/iso")
-	if err != nil {
-		err = os.MkdirAll("/srv/iso", 0770)
+	/*
+		_, err = os.Stat("/srv/iso")
 		if err != nil {
-			l.Info(fmt.Sprintf("Failed to create dir: %s\n", err.Error()))
-			os.Exit(1)
+			err = os.MkdirAll("/srv/iso", 0770)
+			if err != nil {
+				l.Info(fmt.Sprintf("Failed to create dir: %s\n", err.Error()))
+				os.Exit(1)
+			}
 		}
-	}
+	*/
 
 	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
 	if err != nil {

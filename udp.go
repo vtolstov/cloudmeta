@@ -89,15 +89,15 @@ func (s *Server) ListenAndServeUDPv4() {
 		err = parser.DecodeLayers(buffer, &decoded)
 		for _, layerType := range decoded {
 			switch layerType {
-			/*
-				case layers.LayerTypeIPv4:
-					fmt.Printf("IP4: %+v\n", ip4)
-				case layers.LayerTypeUDP:
-					fmt.Printf("UDP: %+v\n", udp)
-			*/
+
+			case layers.LayerTypeIPv4:
+				fmt.Printf("IP4: %+v\n", ip4)
+			case layers.LayerTypeUDP:
+				fmt.Printf("UDP: %+v\n", udp)
+
 			case layers.LayerTypeDHCPv4:
+				fmt.Printf("DHCP4: %+v\n", dhcp4req)
 				if dhcp4req.Operation == layers.DHCP_MSG_REQ {
-					fmt.Printf("DHCP4: %+v\n", dhcp4req)
 
 					dhcp4res, err := s.ServeUDPv4(&dhcp4req)
 					if err != nil {
