@@ -158,10 +158,10 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Write([]byte(strings.Join(cloudconfig.Users[0].SSHKey, "\n") + "\n"))
 	case "/openstack":
-		w.Write([]byte("latest\n"))
-	case "/openstack/latest":
+		w.Write([]byte("latest\n2013-04-04\n"))
+	case "/openstack/latest", "/openstack/2013-04-04":
 		w.Write([]byte("meta-data.json\nmeta_data.json\nuser-data\nuser_data\nvendor-data\nvendo_data\n"))
-	case "/openstack/latest/meta-data.json", "/openstack/latest/meta_data.json":
+	case "/openstack/latest/meta-data.json", "/openstack/latest/meta_data.json", "/openstack/2013-04-04/meta_data.json":
 		type openstackMetaData struct {
 			Meta struct {
 				Username  string `json:"username"`
