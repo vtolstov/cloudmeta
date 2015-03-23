@@ -13,8 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"bazil.org/fuse"
-
 	"crypto/tls"
 
 	"golang.org/x/net/ipv4"
@@ -64,7 +62,6 @@ type Metadata struct {
 
 var httpconn net.Listener
 var virconn libvirt.VirConnection
-var fuseconn *fuse.Conn
 
 type Server struct {
 	// shutdown flag
