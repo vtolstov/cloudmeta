@@ -61,8 +61,8 @@ int domainEventDeviceRemovedCallback_cgo(virConnectPtr c, virDomainPtr d,
 import "C"
 
 func init() {
-   // libvirt won't print to stderr
-   C.virSetErrorFunc(nil, C.virErrorFunc(unsafe.Pointer(C.virErrorFuncDummy)))
+	// libvirt won't print to stderr
+	C.virSetErrorFunc(nil, C.virErrorFunc(unsafe.Pointer(C.virErrorFuncDummy)))
 }
 
 type VirConnection struct {
@@ -70,8 +70,11 @@ type VirConnection struct {
 }
 
 func NewVirConnection(uri string) (VirConnection, error) {
-	cUri := C.CString(uri)
-	defer C.free(unsafe.Pointer(cUri))
+	var cUri *C.char
+	if uri != "" {
+		cUri = C.CString(uri)
+		defer C.free(unsafe.Pointer(cUri))
+	}
 	ptr := C.virConnectOpen(cUri)
 	if ptr == nil {
 		return VirConnection{}, GetLastError()
@@ -81,8 +84,11 @@ func NewVirConnection(uri string) (VirConnection, error) {
 }
 
 func NewVirConnectionReadOnly(uri string) (VirConnection, error) {
-	cUri := C.CString(uri)
-	defer C.free(unsafe.Pointer(cUri))
+	var cUri *C.char
+	if uri != "" {
+		cUri = C.CString(uri)
+		defer C.free(unsafe.Pointer(cUri))
+	}
 	ptr := C.virConnectOpenReadOnly(cUri)
 	if ptr == nil {
 		return VirConnection{}, GetLastError()
