@@ -101,19 +101,21 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	uri := path.Clean(r.URL.String())
 	switch uri {
 	case "/2009-04-04":
-		w.Write([]byte(""))
+		w.Write([]byte("meta-data\n"))
 	case "/":
 		w.Write([]byte("2009-04-04\nlatest\n"))
 	case "/2009-04-04/meta-data", "/latest/meta-data":
 		w.Write([]byte("public-hostname\nhostname\nlocal-hostname\ninstance-id\npublic-ipv4\npublic-keys\n"))
 	case "/2009-04-04/meta-data/public-hostname", "/2009-04-04/meta-data/hostname", "/2009-04-04/meta-data/local-hostname", "/latest/meta-data/public-hostname", "/latest/meta-data/hostname", "/latest/meta-data/local-hostname":
 		w.Write([]byte(s.name + ".simplecloud.club\n"))
+	case "/2009-04-04/meta-data/local-ipv4":
+		w.Write([]byte(""))
 	case "/2009-04-04/meta-data/instance-id", "/latest/meta-data/instance-id":
 		w.Write([]byte(s.name + "\n"))
 	case "/2009-04-04/meta-data/public-ipv4", "/latest/meta-data/public-ipv4":
 		w.Write([]byte(""))
 	case "/2009-04-04/meta-data/public-keys", "/latest/meta-data/public-keys":
-		w.Write([]byte("0\n"))
+		w.Write([]byte("0=id_rsa\n"))
 	case "/2009-04-04/meta-data/public-keys/0", "/latest/meta-data/public-keys/0":
 		w.Write([]byte("openssh-key\n"))
 	case "/2009-04-04/meta-data/public-keys/0/openssh-key", "/latest/meta-data/public-keys/0/openssh-key":
