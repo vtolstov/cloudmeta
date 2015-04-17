@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 ORG_PATH="github.com/vtolstov"
 REPO_PATH="${ORG_PATH}/svirtnet"
@@ -8,14 +8,9 @@ export GOPATH=${PWD}/third_party
 
 mkdir -p $GOBIN
 
-gb="$(which go)"
-
-if [ "x{gb}" == "x" ]; then
-    wget https://storage.googleapis.com/golang/go1.3.1.linux-amd64.tar.gz -O go.tar.gz
-    tar -zxf go.tar.gz
-    export PATH=$PATH:$(pwd)/go/bin
-fi
-
+wget https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz -O go.tar.gz
+tar -zxf go.tar.gz
+export PATH=$PATH:$(pwd)/go/bin
 
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
         mkdir -p $GOPATH/src/${ORG_PATH}
