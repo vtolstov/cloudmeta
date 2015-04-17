@@ -1,4 +1,4 @@
-#!/usr/bin/make -f
+#!/usr/bin/make -d -f
 # -*- makefile -*-
 # Sample debian/rules that uses debhelper.
 # This file was originally written by Joey Hess and Craig Small.
@@ -9,11 +9,8 @@
 # Uncomment this to turn on verbose mode.
 export DH_VERBOSE=1
 PWD = $(shell pwd)
-export PATH=$$PATH:$(PWD)/go/bin/
 
 override_dh_install:
-	wget https://storage.googleapis.com/golang/go1.3.1.linux-amd64.tar.gz -O go.tar.gz
-	tar -zxf go.tar.gz
 	./build
 	dh_install
 

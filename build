@@ -8,9 +8,18 @@ export GOPATH=${PWD}/third_party
 
 mkdir -p $GOBIN
 
+gb="$(which go)"
+
+if [ "x{gb}" == "x" ]; then
+    wget https://storage.googleapis.com/golang/go1.3.1.linux-amd64.tar.gz -O go.tar.gz
+    tar -zxf go.tar.gz
+    export PATH=$PATH:$(pwd)/go/bin
+fi
+
+
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
         mkdir -p $GOPATH/src/${ORG_PATH}
         ln -s ../../../.. $GOPATH/src/${REPO_PATH} || echo "exit 255"
 fi
 
-GOOS=${os} go build -x -a -installsuffix cgo -o bin/svirtnet ${REPO_PATH}
+go build -x -o bin/svirtnet ${REPO_PATH}
