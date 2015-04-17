@@ -6,9 +6,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/vtolstov/gopacket"
-	"github.com/vtolstov/gopacket/layers"
-	"golang.org/x/net/ipv4"
+	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
+	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket/layers"
+	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv4"
 )
 
 func (s *Server) ListenAndServeUDPv4() {

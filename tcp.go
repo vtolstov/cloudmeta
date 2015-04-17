@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexzorin/libvirt-go"
-	"gopkg.in/yaml.v1"
+	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
+	"github.com/vtolstov/svirtnet/internal/gopkg.in/yaml.v1"
 )
 
 func getServerByIP(ip string) (*Server, error) {

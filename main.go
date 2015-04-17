@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/alexzorin/libvirt-go"
-	"github.com/vishvananda/netlink/nl"
+	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
+	"github.com/vtolstov/svirtnet/internal/github.com/vishvananda/netlink/nl"
 )
 
 func init() {

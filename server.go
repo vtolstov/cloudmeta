@@ -15,10 +15,10 @@ import (
 
 	"crypto/tls"
 
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
+	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv4"
+	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv6"
 
-	"github.com/alexzorin/libvirt-go"
+	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
 )
 
 type IP struct {

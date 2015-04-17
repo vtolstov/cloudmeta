@@ -17,11 +17,11 @@ import (
 
 	"log"
 
-	"github.com/alexzorin/libvirt-go"
-	"golang.org/x/net/context"
+	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
+	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/context"
 
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
+	"github.com/vtolstov/svirtnet/internal/bazil.org/fuse"
+	"github.com/vtolstov/svirtnet/internal/bazil.org/fuse/fs"
 )
 
 type ISO struct {
