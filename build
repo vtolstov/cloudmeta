@@ -1,0 +1,16 @@
+#!/bin/bash -ex
+
+ORG_PATH="github.com/vtolstov"
+REPO_PATH="${ORG_PATH}/svirtnet"
+
+export GOBIN=${PWD}/bin
+export GOPATH=${PWD}/third_party
+
+mkdir -p $GOBIN
+
+if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
+        mkdir -p $GOPATH/src/${ORG_PATH}
+        ln -s ../../../.. $GOPATH/src/${REPO_PATH} || echo "exit 255"
+fi
+
+GOOS=${os} go build -x -a -installsuffix cgo -o bin/svirtnet ${REPO_PATH}
