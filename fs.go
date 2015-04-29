@@ -2,6 +2,7 @@
 
 package main
 
+/*
 import (
 	"crypto/tls"
 	"encoding/xml"
@@ -370,7 +371,7 @@ func (d *httpDir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			return nil, fuse.ENOENT
 		}
 
-		buf, err := domain.GetMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, "http://simplecloud.ru/" /*libvirt.VIR_DOMAIN_MEM_LIVE */, libvirt.VIR_DOMAIN_MEM_CURRENT)
+		buf, err := domain.GetMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, "http://simplecloud.ru/" , libvirt.VIR_DOMAIN_MEM_CURRENT)
 		if err != nil {
 			return nil, fuse.ENOENT
 		}
@@ -411,7 +412,7 @@ func (d *httpDir) Lookup(ctx context.Context, req *fuse.LookupRequest, res *fuse
 		return nil, fuse.ENOENT
 	}
 
-	buf, err := domain.GetMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, "http://simplecloud.ru/" /*libvirt.VIR_DOMAIN_MEM_LIVE */, libvirt.VIR_DOMAIN_MEM_CURRENT)
+	buf, err := domain.GetMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, "http://simplecloud.ru/" , libvirt.VIR_DOMAIN_MEM_CURRENT)
 	if err != nil {
 		return nil, fuse.ENOENT
 	}
@@ -437,3 +438,4 @@ func (d *httpDir) Lookup(ctx context.Context, req *fuse.LookupRequest, res *fuse
 
 	return nil, fuse.ENOENT
 }
+*/
