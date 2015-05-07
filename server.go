@@ -40,7 +40,9 @@ type CloudConfig struct {
 }
 
 type Network struct {
-	IP []IP `xml:"ip"`
+	NameServer []string `xml:"nameserver,omitempty"`
+	DomainName string   `xml:"domainname,omitempty"`
+	IP         []IP     `xml:"ip"`
 }
 
 type ISO struct {
@@ -155,7 +157,14 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	iface, err := net.InterfaceByName("vlan1001")
+	if len(s.metadata.Network.NameServer) == 0 {
+		s.metadata.Network.NameServer = []string{"8.8.8.8"}
+	}
+	if s.metadata.Network.DomainName == "" {
+		s.metadata.Network.DomainName = "simplecloud.club"
+	}
+
+	iface, err := net.InterfaceByName(vlan)
 	if err != nil {
 		l.Info("failed to get vlan1001: " + err.Error())
 		return err

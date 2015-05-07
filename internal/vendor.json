@@ -56,6 +56,12 @@
 			"VersionTime": "2014-09-24T13:16:07-03:00"
 		},
 		{
+			"Vendor": "gopkg.in/yaml.v2",
+			"Local": "github.com/vtolstov/svirtnet/internal/gopkg.in/yaml.v2",
+			"Version": "49c95bdc21843256fb6c4e0d370a05f24a0bf213",
+			"VersionTime": "2015-02-24T19:57:58-03:00"
+		},
+		{
 			"Vendor": "golang.org/x/net/internal/iana",
 			"Local": "github.com/vtolstov/svirtnet/internal/iana",
 			"Version": "ca657d0bd9d9b4f73523118b59af79e5374b9908",

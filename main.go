@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	"log"
 	"log/syslog"
 	"net"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
 	"github.com/vtolstov/svirtnet/internal/github.com/vishvananda/netlink/nl"
+	"github.com/vtolstov/svirtnet/internal/gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -21,14 +23,24 @@ var kvm bool
 var xen bool
 var l *syslog.Writer
 
+var vlan string = "1001"
+
 func main() {
 	var err error
+	var buf []byte
+	var data map[string]string
 	l, err = syslog.Dial("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, "svirtnet")
 	if err != nil {
 		log.Fatalf("Failed to connect to syslog: %s\n", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
+
+	if buf, err = ioutil.ReadFile("/etc/svirtnet.yml"); err == nil {
+		if err = yaml.Unmarshal(buf, &data); err == nil {
+			vlan = data["vlan"]
+		}
+	}
 
 	/*
 		_, err = os.Stat("/srv/iso")
