@@ -164,7 +164,7 @@ func (s *Server) Start() error {
 		s.metadata.Network.DomainName = "simplecloud.club"
 	}
 
-	iface, err := net.InterfaceByName(mater_iface)
+	iface, err := net.InterfaceByName(master_iface)
 	if err != nil {
 		l.Info("failed to get data from master_iface: " + err.Error())
 		return err
