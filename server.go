@@ -164,9 +164,9 @@ func (s *Server) Start() error {
 		s.metadata.Network.DomainName = "simplecloud.club"
 	}
 
-	iface, err := net.InterfaceByName(vlan)
+	iface, err := net.InterfaceByName(mater_iface)
 	if err != nil {
-		l.Info("failed to get vlan1001: " + err.Error())
+		l.Info("failed to get data from master_iface: " + err.Error())
 		return err
 	}
 

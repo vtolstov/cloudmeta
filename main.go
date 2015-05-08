@@ -23,7 +23,7 @@ var kvm bool
 var xen bool
 var l *syslog.Writer
 
-var vlan string = "1001"
+var master_iface string = "1001"
 
 func main() {
 	var err error
@@ -38,7 +38,7 @@ func main() {
 
 	if buf, err = ioutil.ReadFile("/etc/svirtnet.yml"); err == nil {
 		if err = yaml.Unmarshal(buf, &data); err == nil {
-			vlan = data["vlan"]
+			master_iface = data["interface"]
 		}
 	}
 
