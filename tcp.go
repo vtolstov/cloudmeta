@@ -107,7 +107,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/2009-04-04/meta-data", "/latest/meta-data":
 		w.Write([]byte("public-hostname\nhostname\nlocal-hostname\ninstance-id\npublic-ipv4\npublic-keys\n"))
 	case "/2009-04-04/meta-data/public-hostname", "/2009-04-04/meta-data/hostname", "/2009-04-04/meta-data/local-hostname", "/latest/meta-data/public-hostname", "/latest/meta-data/hostname", "/latest/meta-data/local-hostname":
-		w.Write([]byte(s.name + ".simplecloud.club\n"))
+		w.Write([]byte(s.name + "." + s.metadata.Network.DomainName + "\n"))
 	case "/2009-04-04/meta-data/local-ipv4":
 		w.Write([]byte(""))
 	case "/2009-04-04/meta-data/instance-id", "/latest/meta-data/instance-id":
@@ -180,8 +180,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} `json:"public_keys,omitempty"`
 		}
 		metadata := &openstackMetaData{}
-		metadata.Meta.Hostname = s.name + ".simplecloud.club"
-		metadata.Hostname = s.name + ".simplecloud.club"
+		metadata.Meta.Hostname = s.name + "." + s.metadata.Network.DomainName
+		metadata.Hostname = s.name + "." + s.metadata.Network.DomainName
 
 		if ok, err := virconn.IsAlive(); !ok || err != nil {
 			virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
