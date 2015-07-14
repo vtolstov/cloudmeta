@@ -26,11 +26,13 @@ var l *syslog.Writer
 var viruri string
 var master_iface string = "1001"
 var virconn libvirt.VirConnection
+var first bool = true
 
 func getVirConn() libvirt.VirConnection {
-	if virconn == nil {
+	if first {
 		goto loop
 	} else {
+		first = false
 		if ok, err := virconn.IsAlive(); !ok || err != nil {
 		loop:
 			for {
