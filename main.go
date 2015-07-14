@@ -39,6 +39,7 @@ func getVirConn() libvirt.VirConnection {
 			time.Sleep(5 * time.Second)
 		}
 	}
+	return virconn
 }
 
 func main() {
