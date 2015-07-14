@@ -1,3 +1,5 @@
 svirtnet
 third_party/pkg/
 third_party/src/*/.git
+go/
+go.tar.gz

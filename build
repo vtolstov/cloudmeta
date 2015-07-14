@@ -3,14 +3,14 @@
 ORG_PATH="github.com/vtolstov"
 REPO_PATH="${ORG_PATH}/svirtnet"
 
-export GOBIN=${PWD}/bin
-export GOPATH=${PWD}/third_party
+export GOBIN=$(pwd)/bin
+export GOPATH=$(pwd)/third_party
 
 mkdir -p $GOBIN
 
 wget https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz -O go.tar.gz
 tar -zxf go.tar.gz
-export PATH=$PATH:$(pwd)/go/bin
+export PATH=$(pwd)/go/bin
 export GOROOT=$(pwd)/go
 
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
@@ -18,4 +18,4 @@ if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
         ln -s ../../../.. $GOPATH/src/${REPO_PATH} || echo "exit 255"
 fi
 
-go build -x -o bin/svirtnet ${REPO_PATH}
+go build -a -x -o bin/svirtnet ${REPO_PATH}

@@ -63,7 +63,6 @@ type Metadata struct {
 }
 
 var httpconn net.Listener
-var virconn libvirt.VirConnection
 
 type Server struct {
 	// shutdown flag
@@ -132,14 +131,7 @@ func (s *Server) Start() error {
 		return errors.New("invalid server config")
 	}
 
-	if ok, err := virconn.IsAlive(); !ok || err != nil {
-		virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
-		if err != nil {
-			l.Info("failed to connect to libvirt:" + err.Error())
-			return err
-		}
-	}
-
+	virconn = getVirConn()
 	domain, err = virconn.LookupDomainByName(s.name)
 	if err != nil {
 		l.Info("failed to lookup to libvirt: " + err.Error())

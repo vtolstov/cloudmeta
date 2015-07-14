@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
 	"github.com/vtolstov/svirtnet/internal/gopkg.in/yaml.v1"
 )
 
@@ -183,14 +182,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		metadata.Meta.Hostname = s.name + "." + s.metadata.Network.DomainName
 		metadata.Hostname = s.name + "." + s.metadata.Network.DomainName
 
-		if ok, err := virconn.IsAlive(); !ok || err != nil {
-			virconn, err = libvirt.NewVirConnectionReadOnly("qemu:///system")
-			if err != nil {
-				l.Info(fmt.Sprintf("failed to connect to libvirt: %s", err.Error()))
-				return
-			}
-		}
-
+		virconn = getVirConn()
 		domain, err := virconn.LookupDomainByName(s.name)
 		var uuid string
 		if err == nil {

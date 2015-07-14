@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
 	"github.com/vtolstov/svirtnet/internal/github.com/vishvananda/netlink/nl"
@@ -22,8 +23,23 @@ func init() {
 var kvm bool
 var xen bool
 var l *syslog.Writer
-
+var viruri string
 var master_iface string = "1001"
+var virconn libvirt.VirConnection
+
+func getVirConn() libvirt.VirConnection {
+	if ok, err := virconn.IsAlive(); !ok || err != nil {
+		for {
+			vc, err := libvirt.NewVirConnectionReadOnly(viruri)
+			if err == nil {
+				virconn = vc
+				return vc
+			}
+			l.Info("failed to connect to libvirt:" + err.Error())
+			time.Sleep(5 * time.Second)
+		}
+	}
+}
 
 func main() {
 	var err error
@@ -74,21 +90,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	var viruri string
 	if kvm {
 		viruri = "qemu:///system"
 	}
 
 	if xen {
 		viruri = "xen:///"
-	}
-
-	virconn, err = libvirt.NewVirConnectionReadOnly(viruri)
-	if err == nil {
-		defer virconn.UnrefAndCloseConnection()
-	} else {
-		l.Info("failed to connect to libvirt: " + err.Error())
-		os.Exit(1)
 	}
 
 	ifaces, err := net.Interfaces()
