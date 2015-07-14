@@ -28,15 +28,20 @@ var master_iface string = "1001"
 var virconn libvirt.VirConnection
 
 func getVirConn() libvirt.VirConnection {
-	if ok, err := virconn.IsAlive(); !ok || err != nil {
-		for {
-			vc, err := libvirt.NewVirConnectionReadOnly(viruri)
-			if err == nil {
-				virconn = vc
-				return vc
+	if virconn == nil {
+		goto loop
+	} else {
+		if ok, err := virconn.IsAlive(); !ok || err != nil {
+		loop:
+			for {
+				vc, err := libvirt.NewVirConnectionReadOnly(viruri)
+				if err == nil {
+					virconn = vc
+					return vc
+				}
+				l.Info("failed to connect to libvirt:" + err.Error())
+				time.Sleep(5 * time.Second)
 			}
-			l.Info("failed to connect to libvirt:" + err.Error())
-			time.Sleep(5 * time.Second)
 		}
 	}
 	return virconn
