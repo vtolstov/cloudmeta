@@ -29,19 +29,28 @@ var virconn libvirt.VirConnection
 var first bool = true
 
 func getVirConn() libvirt.VirConnection {
-	if first {
-		first = false
+	if !first {
 		if ok, err := virconn.IsAlive(); !ok || err != nil {
 			for {
 				vc, err := libvirt.NewVirConnectionReadOnly(viruri)
 				if err == nil {
 					virconn = vc
-					return vc
+					return virconn
 				}
 				l.Info("failed to connect to libvirt:" + err.Error())
 				time.Sleep(5 * time.Second)
 			}
 		}
+	}
+	for {
+		vc, err := libvirt.NewVirConnectionReadOnly(viruri)
+		if err == nil {
+			first = false
+			virconn = vc
+			return virconn
+		}
+		l.Info("failed to connect to libvirt:" + err.Error())
+		time.Sleep(5 * time.Second)
 	}
 	return virconn
 }
