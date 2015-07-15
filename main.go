@@ -30,11 +30,8 @@ var first bool = true
 
 func getVirConn() libvirt.VirConnection {
 	if first {
-		goto loop
-	} else {
 		first = false
 		if ok, err := virconn.IsAlive(); !ok || err != nil {
-		loop:
 			for {
 				vc, err := libvirt.NewVirConnectionReadOnly(viruri)
 				if err == nil {

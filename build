@@ -10,7 +10,8 @@ mkdir -p $GOBIN
 
 wget https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz -O go.tar.gz
 tar -zxf go.tar.gz
-export PATH=/bin:/usr/bin:/sbin:/usr/sbin:$(pwd)/go/bin
+rm -f go.tar.gz
+export PATH=$(pwd)/go/bin:/bin:/usr/bin:/sbin:/usr/sbin
 export GOROOT=$(pwd)/go
 
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
