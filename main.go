@@ -24,7 +24,7 @@ var kvm bool
 var xen bool
 var l *syslog.Writer
 var viruri string
-var master_iface string = "1001"
+var master_iface string = "vlan1001"
 var virconn libvirt.VirConnection
 var first bool = true
 
