@@ -51,7 +51,7 @@ func ListenAndServeTCPv4() {
 		MaxHeaderBytes: 1 << 20,
 	}
 	s.Serve(httpconn)
-
+	conn.Close()
 }
 
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {

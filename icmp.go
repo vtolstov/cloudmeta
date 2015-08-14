@@ -20,6 +20,7 @@ func (s *Server) ListenAndServeICMPv6() {
 		l.Info("error: " + err.Error())
 		return
 	}
+	defer conn.Close()
 	if err = bindToDevice(conn, "tap"+s.name); err != nil {
 		l.Info("error: " + err.Error())
 		return

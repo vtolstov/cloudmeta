@@ -39,6 +39,7 @@ func (s *Server) ListenAndServeUDPv4() {
 		l.Info(err.Error())
 		return
 	}
+	defer conn.Close()
 	if err = bindToDevice(conn, "tap"+s.name); err != nil {
 		l.Info(err.Error())
 		return

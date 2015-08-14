@@ -149,6 +149,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
+	domain.Free()
 	if len(s.metadata.Network.NameServer) == 0 {
 		s.metadata.Network.NameServer = []string{"8.8.8.8"}
 	}
