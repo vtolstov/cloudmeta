@@ -8,10 +8,14 @@ export GOPATH=$(pwd)/third_party
 
 mkdir -p $GOBIN
 
-wget https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz -O go.tar.gz
-tar -zxf go.tar.gz
-rm -f go.tar.gz
-export PATH=$(pwd)/go/bin:/bin:/usr/bin:/sbin:/usr/sbin
+GO=$(which go)
+if [ "x${GO}" = "x" ]; then
+    wget https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz -O go.tar.gz
+    tar -zxf go.tar.gz
+    rm -f go.tar.gz
+    export PATH=$(pwd)/go/bin:/bin:/usr/bin:/sbin:/usr/sbin
+fi
+
 export GOROOT=$(pwd)/go
 
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
