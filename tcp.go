@@ -11,8 +11,6 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	"github.com/vtolstov/svirtnet/internal/gopkg.in/yaml.v1"
 )
 
 func getServerByIP(ip string) (*Server, error) {
@@ -38,6 +36,7 @@ func ListenAndServeTCPv4() {
 	}
 
 	httpconn = conn
+	defer conn.Close()
 
 	r := http.NewServeMux()
 	r.HandleFunc("/", ServeHTTP)
@@ -51,7 +50,6 @@ func ListenAndServeTCPv4() {
 		MaxHeaderBytes: 1 << 20,
 	}
 	s.Serve(httpconn)
-	conn.Close()
 }
 
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {

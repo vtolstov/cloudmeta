@@ -11,9 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
 	"github.com/vtolstov/svirtnet/internal/github.com/vishvananda/netlink/nl"
-	"github.com/vtolstov/svirtnet/internal/gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -41,16 +39,17 @@ func getVirConn() libvirt.VirConnection {
 				time.Sleep(5 * time.Second)
 			}
 		}
-	}
-	for {
-		vc, err := libvirt.NewVirConnectionReadOnly(viruri)
-		if err == nil {
-			first = false
-			virconn = vc
-			return virconn
+	} else {
+		for {
+			vc, err := libvirt.NewVirConnectionReadOnly(viruri)
+			if err == nil {
+				first = false
+				virconn = vc
+				return virconn
+			}
+			l.Info("failed to connect to libvirt:" + err.Error())
+			time.Sleep(5 * time.Second)
 		}
-		l.Info("failed to connect to libvirt:" + err.Error())
-		time.Sleep(5 * time.Second)
 	}
 	return virconn
 }
@@ -82,6 +81,9 @@ func main() {
 			}
 		}
 	*/
+
+	vc := getVirConn()
+	defer vc.Close()
 
 	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
 	if err != nil {

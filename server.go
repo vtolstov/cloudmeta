@@ -17,8 +17,6 @@ import (
 
 	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv4"
 	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv6"
-
-	"github.com/vtolstov/svirtnet/internal/github.com/alexzorin/libvirt-go"
 )
 
 type IP struct {
@@ -235,6 +233,8 @@ func (s *Server) Stop() (err error) {
 		return nil
 	}
 	s.shutdown = true
+
+	time.Sleep(5 * time.Second)
 
 	if s.ipv4conn != nil {
 		s.ipv4conn.Close()
