@@ -14,9 +14,8 @@ if [ "x${GO}" = "x" ]; then
     tar -zxf go.tar.gz
     rm -f go.tar.gz
     export PATH=$(pwd)/go/bin:/bin:/usr/bin:/sbin:/usr/sbin
+    export GOROOT=$(pwd)/go
 fi
-
-export GOROOT=$(pwd)/go
 
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
         mkdir -p $GOPATH/src/${ORG_PATH}
