@@ -11,6 +11,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 func getServerByIP(ip string) (*Server, error) {

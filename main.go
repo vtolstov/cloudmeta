@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/vtolstov/svirtnet/internal/github.com/vishvananda/netlink/nl"
+	"gopkg.in/alexzorin/libvirt-go.v2"
+	"gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -83,7 +85,7 @@ func main() {
 	*/
 
 	vc := getVirConn()
-	defer vc.Close()
+	defer vc.UnrefAndCloseConnection()
 
 	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
 	if err != nil {
