@@ -213,6 +213,7 @@ func (s *Server) Start() error {
 	}
 
 	for _, cmd := range cmds {
+		l.Info(fmt.Sprintf("exec %s", cmd))
 		err = cmd.Run()
 		if err != nil {
 			l.Info(fmt.Sprintf("Failed to run cmd %s: %s", cmd, err))
@@ -262,6 +263,7 @@ func (s *Server) Stop() (err error) {
 		}
 
 		for _, cmd := range cmds {
+			l.Info(fmt.Sprintf("exec %s", cmd))
 			err = cmd.Run()
 			if err != nil {
 				l.Info(fmt.Sprintf("Failed to run cmd %s: %s", cmd, err))
