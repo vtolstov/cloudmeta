@@ -230,6 +230,7 @@ func (s *Server) Start() error {
 	l.Info(s.name + " ListenAndServeICMPv6")
 	go s.ListenAndServeICMPv6()
 
+	return nil
 }
 
 func (s *Server) Stop() (err error) {
