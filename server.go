@@ -130,6 +130,9 @@ func (s *Server) Start() error {
 		return errors.New("invalid server config")
 	}
 
+	s.Lock()
+	defer s.Unlock()
+
 	virconn = getVirConn()
 	domain, err = virconn.LookupDomainByName(s.name)
 	if err != nil {
@@ -227,10 +230,11 @@ func (s *Server) Start() error {
 	l.Info(s.name + " ListenAndServeICMPv6")
 	go s.ListenAndServeICMPv6()
 
-	select {}
 }
 
 func (s *Server) Stop() (err error) {
+	s.Lock()
+	defer s.Unlock()
 	if s == nil {
 		return nil
 	}
@@ -261,7 +265,6 @@ func (s *Server) Stop() (err error) {
 				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		}
-
 		for _, cmd := range cmds {
 			l.Info(fmt.Sprintf("exec %s", cmd))
 			err = cmd.Run()

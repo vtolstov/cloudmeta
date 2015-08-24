@@ -164,8 +164,10 @@ func main() {
 							if _, ok := servers[name[3:]]; !ok {
 								s := &Server{name: name[3:]}
 								servers[name[3:]] = s
-								go s.Start()
-								l.Info(name[3:] + " start serving")
+								go func() {
+									s.Start()
+									l.Info(name[3:] + " start serving")
+								}()
 							}
 						}
 					}
@@ -182,9 +184,11 @@ func main() {
 						name := string(attr.Value[:len(attr.Value)-1])
 						if strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vif") {
 							if s, ok := servers[name[3:]]; ok {
-								go s.Stop()
-								l.Info(name[3:] + " stop serving")
-								delete(servers, name[3:])
+								go func() {
+									s.Stop()
+									l.Info(name[3:] + " stop serving")
+									delete(servers, name[3:])
+								}()
 							}
 						}
 					}
