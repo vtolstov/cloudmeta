@@ -139,6 +139,7 @@ func (s *Server) Start() error {
 		l.Info("failed to lookup to libvirt: " + err.Error())
 		return err
 	}
+	defer domain.Free()
 
 	buf, err = domain.GetMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, "http://simplecloud.ru/", libvirt.VIR_DOMAIN_MEM_LIVE)
 	if err != nil {
@@ -151,7 +152,6 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	domain.Free()
 	if len(s.metadata.Network.NameServer) == 0 {
 		s.metadata.Network.NameServer = []string{"8.8.8.8"}
 	}
@@ -183,6 +183,7 @@ func (s *Server) Start() error {
 		}
 	}
 
+	l.Info(fmt.Sprintf("add commands"))
 	var cmds []*exec.Cmd
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" && addr.Peer != "" {
@@ -215,6 +216,7 @@ func (s *Server) Start() error {
 		}
 	}
 
+	l.Info(fmt.Sprintf("run commands"))
 	for _, cmd := range cmds {
 		l.Info(fmt.Sprintf("exec %s", cmd))
 		err = cmd.Run()
@@ -243,15 +245,18 @@ func (s *Server) Stop() (err error) {
 
 	time.Sleep(2 * time.Second)
 
+	l.Info(fmt.Sprintf("shutdown ipv4 conn"))
 	if s.ipv4conn != nil {
 		s.ipv4conn.Close()
 	}
+	l.Info(fmt.Sprintf("shutdown ipv6 conn"))
 	if s.ipv6conn != nil {
 		s.ipv6conn.Close()
 	}
 
 	var cmds []*exec.Cmd
 	if s.metadata != nil && len(s.metadata.Network.IP) > 0 {
+		l.Info(fmt.Sprintf("add commands"))
 		for _, addr := range s.metadata.Network.IP {
 			if addr.Family == "ipv4" && addr.Host == "true" {
 				// TODO: use netlink
@@ -266,6 +271,7 @@ func (s *Server) Stop() (err error) {
 				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		}
+		l.Info(fmt.Sprintf("run commands"))
 		for _, cmd := range cmds {
 			l.Info(fmt.Sprintf("exec %s", cmd))
 			err = cmd.Run()
@@ -274,9 +280,6 @@ func (s *Server) Stop() (err error) {
 				return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 			}
 		}
-	}
-	if s.metadata == nil {
-		return nil
 	}
 	s.metadata = nil
 	return nil

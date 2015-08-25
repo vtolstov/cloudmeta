@@ -77,16 +77,10 @@ func (s *Server) Unsolicitated() {
 			return
 		case <-ticker.C:
 			if s.shutdown {
+				ticker.Stop()
 				return
 			}
 			s.sendRA(nil)
-			/*
-				default:
-					if s.shutdown {
-						ticker.Stop()
-						return
-					}
-			*/
 		}
 	}
 }
