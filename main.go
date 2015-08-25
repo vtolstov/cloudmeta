@@ -161,13 +161,19 @@ func main() {
 					case syscall.IFLA_IFNAME:
 						name := string(attr.Value[:len(attr.Value)-1])
 						if strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vif") {
-							if _, ok := servers[name[3:]]; !ok {
-								s := &Server{name: name[3:]}
+						Loop:
+							if s, ok := servers[name[3:]]; !ok {
+								s = &Server{name: name[3:]}
 								servers[name[3:]] = s
 								go func() {
 									s.Start()
 									l.Info(name[3:] + " start serving")
 								}()
+							} else {
+								if s.shutdown {
+									time.Sleep(2 * time.Second)
+									goto Loop
+								}
 							}
 						}
 					}
@@ -184,10 +190,10 @@ func main() {
 						name := string(attr.Value[:len(attr.Value)-1])
 						if strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vif") {
 							if s, ok := servers[name[3:]]; ok {
-								delete(servers, name[3:])
 								go func() {
 									s.Stop()
 									l.Info(name[3:] + " stop serving")
+									delete(servers, name[3:])
 								}()
 							}
 						}
