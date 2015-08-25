@@ -66,7 +66,7 @@ func (s *Server) ListenAndServeUDPv4() {
 	}
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {
-		l.Info(err.Error())
+		l.Info(fmt.Sprintf("failed to get iface: %s", err.Error()))
 		return
 	}
 

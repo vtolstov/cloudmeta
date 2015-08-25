@@ -95,7 +95,6 @@ func (s *Server) sendRA(src net.Addr) {
 
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {
-		l.Info("can't find iface tap" + s.name + " " + err.Error())
 		return
 	}
 	addrs, err := iface.Addrs()
