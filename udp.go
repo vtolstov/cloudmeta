@@ -163,6 +163,10 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 	var cidr string
 	mac = dhcpreq.ClientHWAddr
 
+	if s.metadata == nil {
+		return nil, fmt.Errorf("err: metadata is nil")
+	}
+
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" {
 			gw = net.ParseIP(addr.Address)

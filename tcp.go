@@ -69,6 +69,12 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var res *http.Response
 
+	if s.metadata == nil {
+		l.Info(fmt.Sprintf("err: metadata is nil"))
+		w.WriteHeader(503)
+		return
+	}
+
 	u, _ := url.Parse(s.metadata.CloudConfig.URL)
 	if strings.Index(u.Host, ":") > 0 {
 		host, port, _ = net.SplitHostPort(u.Host)
