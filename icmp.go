@@ -119,13 +119,7 @@ func (s *Server) sendRA(src net.Addr) {
 			break
 		}
 	}
-	/*
-		if src == nil {
-			log.Printf("unsolicitated %+v\n", ipAddr)
-		} else {
-			log.Printf("solicitated %+v\n", ipAddr)
-		}
-	*/
+
 	if ipAddr == nil || srcIP == nil {
 		l.Info(fmt.Sprintf("ipv6 add missing for tap %s %s", s.name, srcIP))
 		return

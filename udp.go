@@ -168,15 +168,17 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 	}
 
 	for _, addr := range s.metadata.Network.IP {
-		if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" {
-			gw = net.ParseIP(addr.Address)
-		}
 		if addr.Family == "ipv4" && addr.Host == "false" {
 			cidr = addr.Address + "/" + addr.Prefix
 			ip, ipnet, err = net.ParseCIDR(cidr)
 			if err != nil {
 				return nil, err
 			}
+			break
+		}
+		if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" && ipnet != nil && ipnet.Contains(addr.Address) {
+			gw = net.ParseIP(addr.Address)
+			break
 		}
 	}
 	if ipnet == nil || ipnet.Mask == nil {
