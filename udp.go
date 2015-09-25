@@ -175,7 +175,7 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 				return nil, err
 			}
 
-			if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" && ipnet != nil && ipnet.Contains(addr.Address) {
+			if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" && ipnet != nil && ipnet.Contains(net.ParseIP(addr.Address)) {
 				gw = net.ParseIP(addr.Address)
 				break
 			}
