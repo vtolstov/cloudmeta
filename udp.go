@@ -174,15 +174,15 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			if err != nil {
 				return nil, err
 			}
-
-			if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" && ipnet != nil && ipnet.Contains(net.ParseIP(addr.Address)) {
-				gw = net.ParseIP(addr.Address)
-				break
-			}
 		}
+		if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" && ipnet != nil && ipnet.Contains(net.ParseIP(addr.Address)) {
+			gw = net.ParseIP(addr.Address)
+			break
+		}
+
 	}
-	if ipnet == nil || ipnet.Mask == nil {
-		return nil, fmt.Errorf("failed to get ipnet")
+	if ipnet == nil || ipnet.Mask == nil || gw == nil || ip == nil {
+		return nil, fmt.Errorf("failed to get ipv4 info")
 	}
 
 	opt := dhcpreq.Options[0]
