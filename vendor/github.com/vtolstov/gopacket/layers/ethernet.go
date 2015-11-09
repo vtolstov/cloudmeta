@@ -8,10 +8,10 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/vtolstov/gopacket"
 	"net"
 )
 

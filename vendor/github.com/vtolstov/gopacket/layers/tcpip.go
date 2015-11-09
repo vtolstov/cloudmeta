@@ -8,8 +8,8 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"fmt"
+	"github.com/vtolstov/gopacket"
 )
 
 // Checksum computation for TCP/UDP.

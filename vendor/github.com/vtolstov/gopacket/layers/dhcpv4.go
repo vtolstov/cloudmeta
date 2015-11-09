@@ -15,7 +15,7 @@ import (
 	"math/rand"
 	"net"
 
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
+	"github.com/vtolstov/gopacket"
 )
 
 var LayerTypeDHCPv4 = gopacket.RegisterLayerType(6768, gopacket.LayerTypeMetadata{"DHCPv4", gopacket.DecodeFunc(decodeDHCPv4)})

@@ -72,9 +72,9 @@ that's why they're there. */
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
 	"fmt"
+	"github.com/vtolstov/gopacket"
 	"net"
 )
 

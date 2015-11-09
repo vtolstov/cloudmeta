@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/vtolstov/svirtnet/internal/iana"
+	"golang.org/x/net/internal/iana"
 )
 
 func setControlMessage(fd int, opt *rawOpt, cf ControlFlags, on bool) error {

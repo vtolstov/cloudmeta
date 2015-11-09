@@ -7,7 +7,7 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
+	"github.com/vtolstov/gopacket"
 )
 
 // EAPOL defines an EAP over LAN (802.1x) layer.

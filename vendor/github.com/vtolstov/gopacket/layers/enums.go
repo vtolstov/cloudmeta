@@ -8,9 +8,10 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"errors"
 	"fmt"
+
+	"github.com/vtolstov/gopacket"
 )
 
 // EnumMetadata keeps track of a set of metadata for each enumeration value
@@ -40,21 +41,22 @@ const (
 	// EthernetTypeLLC is not an actual ethernet type.  It is instead a
 	// placeholder we use in Ethernet frames that use the 802.3 standard of
 	// srcmac|dstmac|length|LLC instead of srcmac|dstmac|ethertype.
-	EthernetTypeLLC                EthernetType = 0
-	EthernetTypeIPv4               EthernetType = 0x0800
-	EthernetTypeARP                EthernetType = 0x0806
-	EthernetTypeIPv6               EthernetType = 0x86DD
-	EthernetTypeCiscoDiscovery     EthernetType = 0x2000
-	EthernetTypeNortelDiscovery    EthernetType = 0x01a2
-	EthernetTypeDot1Q              EthernetType = 0x8100
-	EthernetTypePPPoEDiscovery     EthernetType = 0x8863
-	EthernetTypePPPoESession       EthernetType = 0x8864
-	EthernetTypeMPLSUnicast        EthernetType = 0x8847
-	EthernetTypeMPLSMulticast      EthernetType = 0x8848
-	EthernetTypeEAPOL              EthernetType = 0x888e
-	EthernetTypeQinQ               EthernetType = 0x88a8
-	EthernetTypeLinkLayerDiscovery EthernetType = 0x88cc
-	EthernetTypeEthernetCTP        EthernetType = 0x9000
+	EthernetTypeLLC                         EthernetType = 0
+	EthernetTypeIPv4                        EthernetType = 0x0800
+	EthernetTypeARP                         EthernetType = 0x0806
+	EthernetTypeIPv6                        EthernetType = 0x86DD
+	EthernetTypeCiscoDiscovery              EthernetType = 0x2000
+	EthernetTypeNortelDiscovery             EthernetType = 0x01a2
+	EthernetTypeTransparentEthernetBridging EthernetType = 0x6558
+	EthernetTypeDot1Q                       EthernetType = 0x8100
+	EthernetTypePPPoEDiscovery              EthernetType = 0x8863
+	EthernetTypePPPoESession                EthernetType = 0x8864
+	EthernetTypeMPLSUnicast                 EthernetType = 0x8847
+	EthernetTypeMPLSMulticast               EthernetType = 0x8848
+	EthernetTypeEAPOL                       EthernetType = 0x888e
+	EthernetTypeQinQ                        EthernetType = 0x88a8
+	EthernetTypeLinkLayerDiscovery          EthernetType = 0x88cc
+	EthernetTypeEthernetCTP                 EthernetType = 0x9000
 )
 
 // IPProtocol is an enumeration of IP protocol values, and acts as a decoder
@@ -65,6 +67,7 @@ const (
 	IPProtocolIPv6HopByHop    IPProtocol = 0
 	IPProtocolICMPv4          IPProtocol = 1
 	IPProtocolIGMP            IPProtocol = 2
+	IPProtocolIPv4            IPProtocol = 4
 	IPProtocolTCP             IPProtocol = 6
 	IPProtocolUDP             IPProtocol = 17
 	IPProtocolRUDP            IPProtocol = 27
@@ -433,7 +436,9 @@ func init() {
 	EthernetTypeMetadata[EthernetTypeMPLSMulticast] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeMPLS), Name: "MPLSMulticast", LayerType: LayerTypeMPLS}
 	EthernetTypeMetadata[EthernetTypeEAPOL] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeEAPOL), Name: "EAPOL", LayerType: LayerTypeEAPOL}
 	EthernetTypeMetadata[EthernetTypeQinQ] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot1Q), Name: "Dot1Q", LayerType: LayerTypeDot1Q}
+	EthernetTypeMetadata[EthernetTypeTransparentEthernetBridging] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeEthernet), Name: "TransparentEthernetBridging", LayerType: LayerTypeEthernet}
 
+	IPProtocolMetadata[IPProtocolIPv4] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeIPv4), Name: "IPv4", LayerType: LayerTypeIPv4}
 	IPProtocolMetadata[IPProtocolTCP] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeTCP), Name: "TCP", LayerType: LayerTypeTCP}
 	IPProtocolMetadata[IPProtocolUDP] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeUDP), Name: "UDP", LayerType: LayerTypeUDP}
 	IPProtocolMetadata[IPProtocolICMPv4] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeICMPv4), Name: "ICMPv4", LayerType: LayerTypeICMPv4}
@@ -486,6 +491,7 @@ func init() {
 	LinkTypeMetadata[LinkTypeIEEE80211Radio] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeRadioTap), Name: "RadioTap"}
 	LinkTypeMetadata[LinkTypeLinuxUSB] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeUSB), Name: "USB"}
 	LinkTypeMetadata[LinkTypeLinuxSLL] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeLinuxSLL), Name: "Linux SLL"}
+	LinkTypeMetadata[LinkTypePrismHeader] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodePrismHeader), Name: "Prism"}
 
 	FDDIFrameControlMetadata[FDDIFrameControlLLC] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeLLC), Name: "LLC"}
 

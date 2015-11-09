@@ -7,8 +7,8 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
+	"github.com/vtolstov/gopacket"
 )
 
 // EtherIP is the struct for storing RFC 3378 EtherIP packet headers.

@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
+	"github.com/vtolstov/gopacket"
 )
 
 // testUDPPacketDNS is the packet:

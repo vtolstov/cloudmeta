@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/vtolstov/svirtnet/internal/iana"
+	"golang.org/x/net/internal/iana"
 )
 
 func marshal2292HopLimit(b []byte, cm *ControlMessage) []byte {

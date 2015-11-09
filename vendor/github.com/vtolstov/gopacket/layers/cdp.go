@@ -6,15 +6,15 @@
 
 // Enum types courtesy of...
 //   http://search.cpan.org/~mchapman/Net-CDP-0.09/lib/Net/CDP.pm
-//   https://github.com/vtolstov/ladvd/
+//   https://code.google.com/p/ladvd/
 //   http://anonsvn.wireshark.org/viewvc/releases/wireshark-1.8.6/epan/dissectors/packet-cdp.c
 
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
 	"fmt"
+	"github.com/vtolstov/gopacket"
 	"net"
 )
 

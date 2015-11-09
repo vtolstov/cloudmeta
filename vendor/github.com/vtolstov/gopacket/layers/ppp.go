@@ -7,9 +7,9 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
 	"errors"
+	"github.com/vtolstov/gopacket"
 )
 
 // PPP is the layer for PPP encapsulation headers.

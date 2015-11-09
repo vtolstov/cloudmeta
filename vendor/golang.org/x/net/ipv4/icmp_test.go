@@ -6,12 +6,12 @@ package ipv4_test
 
 import (
 	"net"
-	"os"
 	"reflect"
 	"runtime"
 	"testing"
 
-	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv4"
+	"golang.org/x/net/internal/nettest"
+	"golang.org/x/net/ipv4"
 )
 
 var icmpStringTests = []struct {
@@ -36,7 +36,7 @@ func TestICMPFilter(t *testing.T) {
 	switch runtime.GOOS {
 	case "linux":
 	default:
-		t.Skipf("not supported on %q", runtime.GOOS)
+		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 
 	var f ipv4.ICMPFilter
@@ -64,10 +64,10 @@ func TestSetICMPFilter(t *testing.T) {
 	switch runtime.GOOS {
 	case "linux":
 	default:
-		t.Skipf("not supported on %q", runtime.GOOS)
+		t.Skipf("not supported on %s", runtime.GOOS)
 	}
-	if os.Getuid() != 0 {
-		t.Skip("must be root")
+	if m, ok := nettest.SupportsRawIPSocket(); !ok {
+		t.Skip(m)
 	}
 
 	c, err := net.ListenPacket("ip4:icmp", "127.0.0.1")

@@ -2,19 +2,27 @@
 
 ORG_PATH="github.com/vtolstov"
 REPO_PATH="${ORG_PATH}/svirtnet"
+VERSION=`git describe --long`
+BUILD_TIME=`date +%FT%T%z`
+LDFLAGS="-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
 
-export GOBIN=$(pwd)/bin
-export GOPATH=$(pwd)/third_party
 
-mkdir -p $GOBIN
+rm -rf bin tmp
 
-GO=$(which go)
-if [ "x${GO}" = "x" ]; then
-    wget https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz -O go.tar.gz
-    tar -zxf go.tar.gz
-    rm -f go.tar.gz
-    export PATH=$(pwd)/go/bin:/bin:/usr/bin:/sbin:/usr/sbin
-    export GOROOT=$(pwd)/go
+export GO15VENDOREXPERIMENT=1
+export GOPATH=$(pwd)/gopath
+mkdir -p $GOPATH
+mkdir -p bin
+mkdir -p tmp
+
+go version | grep -q go1.5
+
+if [ "x$?" != "x0" ]; then
+    export GOROOT=$(pwd)/goroot
+    export PATH=$GOROOT/bin:$PATH
+    mkdir -p $GOROOT
+    wget https://storage.googleapis.com/golang/go1.5.linux-amd64.tar.gz -O tmp/go.tar.gz
+    tar --strip-components=1 -C $GOROOT -xf tmp/go.tar.gz
 fi
 
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
@@ -22,4 +30,6 @@ if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
         ln -s ../../../.. $GOPATH/src/${REPO_PATH} || echo "exit 255"
 fi
 
-go build -a -x -o bin/svirtnet ${REPO_PATH}
+set -e
+
+GOOS=linux GOARCH=amd64 go build -x -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet ${REPO_PATH}

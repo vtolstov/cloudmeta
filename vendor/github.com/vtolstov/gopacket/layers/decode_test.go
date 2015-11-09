@@ -9,10 +9,10 @@ package layers
 
 import (
 	"bytes"
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket/bytediff"
 	"encoding/hex"
 	"fmt"
+	"github.com/vtolstov/gopacket"
+	"github.com/vtolstov/gopacket/bytediff"
 	"net"
 	"reflect"
 	"strings"

@@ -12,9 +12,9 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/vtolstov/svirtnet/internal/iana"
-	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv4"
-	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv6"
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 const sysIP_STRIPHDR = 0x17 // for now only darwin supports this option
@@ -57,7 +57,7 @@ func ListenPacket(network, address string) (*PacketConn, error) {
 			proto = iana.ProtocolIPv6ICMP
 		}
 	}
-	var err error
+	var cerr error
 	var c net.PacketConn
 	switch family {
 	case syscall.AF_INET, syscall.AF_INET6:
@@ -80,18 +80,18 @@ func ListenPacket(network, address string) (*PacketConn, error) {
 		}
 		f := os.NewFile(uintptr(s), "datagram-oriented icmp")
 		defer f.Close()
-		c, err = net.FilePacketConn(f)
+		c, cerr = net.FilePacketConn(f)
 	default:
-		c, err = net.ListenPacket(network, address)
+		c, cerr = net.ListenPacket(network, address)
 	}
-	if err != nil {
-		return nil, err
+	if cerr != nil {
+		return nil, cerr
 	}
 	switch proto {
 	case iana.ProtocolICMP:
-		return &PacketConn{c: c, ipc: ipv4.NewPacketConn(c)}, nil
+		return &PacketConn{c: c, p4: ipv4.NewPacketConn(c)}, nil
 	case iana.ProtocolIPv6ICMP:
-		return &PacketConn{c: c, ipc: ipv6.NewPacketConn(c)}, nil
+		return &PacketConn{c: c, p6: ipv6.NewPacketConn(c)}, nil
 	default:
 		return &PacketConn{c: c}, nil
 	}

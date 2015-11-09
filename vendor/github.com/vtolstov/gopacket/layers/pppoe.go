@@ -7,8 +7,8 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
+	"github.com/vtolstov/gopacket"
 )
 
 // PPPoE is the layer for PPPoE encapsulation headers.

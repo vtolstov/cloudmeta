@@ -8,8 +8,8 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
+	"github.com/vtolstov/gopacket"
 	"net"
 	"time"
 )

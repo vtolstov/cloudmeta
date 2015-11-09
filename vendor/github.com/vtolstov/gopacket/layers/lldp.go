@@ -7,9 +7,9 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
 	"fmt"
+	"github.com/vtolstov/gopacket"
 )
 
 // LLDPTLVType is the type of each TLV value in a LinkLayerDiscovery packet.

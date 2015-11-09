@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/vtolstov/svirtnet/internal/iana"
-	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv6"
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/ipv6"
 )
 
 var (

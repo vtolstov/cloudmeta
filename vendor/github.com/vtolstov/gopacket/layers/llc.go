@@ -7,8 +7,8 @@
 package layers
 
 import (
-	"github.com/vtolstov/svirtnet/internal/github.com/vtolstov/gopacket"
 	"encoding/binary"
+	"github.com/vtolstov/gopacket"
 )
 
 // LLC is the layer used for 802.2 Logical Link Control headers.
