@@ -4,5 +4,5 @@ simple-virtnet
 build:
 
 ```
-GOPATH=$(pwd)/third_party/ go build -a -x  -o svirtnet
+go get github.com/vtolstov/svirtnet
 ```

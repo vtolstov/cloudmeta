@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/vtolstov/svirtnet/internal/github.com/vishvananda/netlink/nl"
+	"github.com/vishvananda/netlink/nl"
 	"gopkg.in/alexzorin/libvirt-go.v2"
 	"gopkg.in/yaml.v2"
 )
