@@ -1,3 +1,9 @@
+svirtnet (0.0.28-1) stable; urgency=high
+
+  * Version bump
+
+ -- Alexey Mochkin <alukardd@alukardd.org>  Fri, 18 Dec 2015 16:41:06 +0300
+
 svirtnet (0.0.27-1) stable; urgency=high
 
   * Autobuild.
