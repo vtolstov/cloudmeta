@@ -106,11 +106,10 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	uri := path.Clean(r.URL.String())
 	switch uri {
 	case "/agent/log":
-		req, _ := http.NewRequest("POST", s.metadata.Agent.Log, nil)
+		req, _ := http.NewRequest("POST", s.metadata.Agent.Log, r.Body)
 		req.Header.Add("Content-Type", r.Header.Get("Content-Type"))
-		req.Header.Add("Content-Length", r.Header.Get("Content-Length"))
+		//		req.Header.Add("Content-Length", r.Header.Get("Content-Length"))
 		req.ContentLength = r.ContentLength
-		req.Body = r.Body
 		httpClient.Do(req)
 		w.Write([]byte(""))
 	case "/2009-04-04":
