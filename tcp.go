@@ -107,8 +107,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch uri {
 	case "/agent/log":
 		req, _ := http.NewRequest("POST", s.metadata.Agent.Log, nil)
-		req.Header.Add("Content-Type") = r.Header.Get("Content-Type")
-		req.Header.Add("Content-Length") = r.Header.Get("Content-Length")
+		req.Header.Add("Content-Type", r.Header.Get("Content-Type"))
+		req.Header.Add("Content-Length", r.Header.Get("Content-Length"))
 		req.ContentLength = r.ContentLength
 		req.Body = r.Body
 		httpClient.Do(req)
