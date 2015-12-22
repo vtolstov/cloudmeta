@@ -55,10 +55,15 @@ type ISODisk struct {
 	Target string `xml:"target->name,attr"`
 }
 
+type Agent struct {
+	Log string `xml:"log,omitempty"`
+}
+
 type Metadata struct {
 	Network     Network     `xml:"network"`
 	CloudConfig CloudConfig `xml:"cloud-config"`
 	ISO         ISO         `xml:"iso,omitempty"`
+	Agent       Agent       `xml:"agent,omitempty"`
 }
 
 var httpconn net.Listener

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -105,6 +106,12 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	uri := path.Clean(r.URL.String())
 	switch uri {
+	case "/agent/log":
+		buffer := ioutil.ReadAll(r.Body)
+		if len(buffer) > 0 {
+			httpClient.Post(s.metadata.Agent.Log, "text/plain", bytes.NewBuffer(buffer))
+		}
+		w.Write([]byte(""))
 	case "/2009-04-04":
 		w.Write([]byte("meta-data\n"))
 	case "/":
