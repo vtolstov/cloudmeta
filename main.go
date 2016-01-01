@@ -170,4 +170,11 @@ func main() {
 		func() {},
 	)
 
+	libvirt.EventRunDefaultImpl()
+	// Deregister the event
+	if ret := vc.DomainEventDeregister(callbackId); ret < 0 {
+		l.Info("Event deregistration failed")
+	}
+	callbackId = -1 // Don't deregister twice
+
 }
