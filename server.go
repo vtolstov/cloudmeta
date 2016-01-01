@@ -199,9 +199,9 @@ func (s *Server) Start() error {
 		if addr.Family == "ipv4" && addr.Host == "true" {
 			// TODO: use netlink
 			if addr.Peer != "" {
-				cmds = append(cmds, exec.Command("ip", "-4", "a", "add", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
+				cmds = append(cmds, exec.Command("ip", "-4", "a", "replace", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			} else {
-				cmds = append(cmds, exec.Command("ip", "-4", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
+				cmds = append(cmds, exec.Command("ip", "-4", "a", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			}
 		}
 	}
@@ -211,7 +211,7 @@ func (s *Server) Start() error {
 	for _, addr := range metaIP {
 		if addr.Family == "ipv6" && addr.Host == "true" {
 			// TODO: use netlink
-			cmds = append(cmds, exec.Command("ip", "-6", "a", "add", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
+			cmds = append(cmds, exec.Command("ip", "-6", "a", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			cmds = append(cmds, exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200"))
 		}
 	}
