@@ -11,7 +11,7 @@ rm -rf bin tmp
 
 export GO15VENDOREXPERIMENT=1
 export GOPATH=$(pwd)/gopath
-export PATH=$GOROOT/bin:$PATH
+export PATH=$GOROOT/bin:$PATH:$(pwd)/goroot/bin
 mkdir -p $GOPATH
 mkdir -p bin
 mkdir -p tmp
