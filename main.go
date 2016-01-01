@@ -4,7 +4,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"fmt"
 	"log/syslog"
 	"os"
 	"path/filepath"
@@ -53,7 +52,7 @@ func getVirConn() libvirt.VirConnection {
 }
 
 func main() {
-     var vc libvirt.VirConnection
+	var vc libvirt.VirConnection
 	var err error
 	var buf []byte
 	var data map[string]string
@@ -74,9 +73,8 @@ func main() {
 	if err == nil {
 		viruri = "xen:///"
 	} else {
-	        viruri = "qemu:///system"
-        }
-
+		viruri = "qemu:///system"
+	}
 
 	l.Info("ListenAndServeTCPv4")
 	go ListenAndServeTCPv4()
@@ -91,7 +89,6 @@ func main() {
 
 	callback := libvirt.DomainEventCallback(
 		func(c *libvirt.VirConnection, d *libvirt.VirDomain, eventDetails interface{}, f func()) int {
-		fmt.Printf("callback\n")
 			if lifecycleEvent, ok := eventDetails.(libvirt.DomainLifecycleEvent); ok {
 				domName, err := d.GetName()
 				if err != nil {
@@ -115,8 +112,8 @@ func main() {
 						l.Info(domName + " stop serving")
 						delete(servers, domName)
 					}
-					default:
-					fmt.Printf("%#+v\n", eventDetails)
+					//				default:
+					//					fmt.Printf("%#+v\n", eventDetails)
 				}
 			}
 			f()
@@ -124,42 +121,39 @@ func main() {
 		},
 	)
 
-	fmt.Printf("default event impl\n")
 	libvirt.EventRegisterDefaultImpl()
 
-        vc = getVirConn()
-        defer vc.UnrefAndCloseConnection()
+	vc = getVirConn()
+	defer vc.UnrefAndCloseConnection()
 
-	fmt.Printf("register event\n")
 	callbackId = vc.DomainEventRegister(
 		libvirt.VirDomain{},
 		libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
 		&callback,
 		func() {},
-
 	)
-	fmt.Printf("callback id %d\n", callbackId)
+	if callbackId < 0 {
+		log.Fatalf("libvirt event registration failed")
+		os.Exit(1)
+	}
 
-        if virdomains, err := vc.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE | libvirt.VIR_CONNECT_LIST_DOMAINS_INACTIVE); err == nil {
-                for _, d := range virdomains {
-                        domName, err := d.GetName()
-                        if err != nil {
-                                continue
-                        }
-                        if _, ok := servers[domName]; !ok {
-                                servers[domName] = &Server{name: domName}
-                                l.Info(domName + " start serving")
-                                go servers[domName].Start()
-                        }
-                }
-        }
+	if virdomains, err := vc.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE | libvirt.VIR_CONNECT_LIST_DOMAINS_INACTIVE); err == nil {
+		for _, d := range virdomains {
+			domName, err := d.GetName()
+			if err != nil {
+				continue
+			}
+			if _, ok := servers[domName]; !ok {
+				servers[domName] = &Server{name: domName}
+				l.Info(domName + " start serving")
+				go servers[domName].Start()
+			}
+		}
+	}
 
-
-	fmt.Printf("run event\n")
 	for {
-	libvirt.EventRunDefaultImpl()
-//select{}
-}
+		libvirt.EventRunDefaultImpl()
+	}
 	// Deregister the event
 	if ret := vc.DomainEventDeregister(callbackId); ret < 0 {
 		l.Info("Event deregistration failed")
