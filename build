@@ -11,6 +11,7 @@ rm -rf bin tmp
 
 export GO15VENDOREXPERIMENT=1
 export GOPATH=$(pwd)/gopath
+export PATH=$GOROOT/bin:$PATH
 mkdir -p $GOPATH
 mkdir -p bin
 mkdir -p tmp
@@ -19,7 +20,6 @@ go version | grep -q go1.5
 
 if [ "x$?" != "x0" ]; then
     export GOROOT=$(pwd)/goroot
-    export PATH=$GOROOT/bin:$PATH
     mkdir -p $GOROOT
     wget https://storage.googleapis.com/golang/go1.5.linux-amd64.tar.gz -O tmp/go.tar.gz
     tar --strip-components=1 -C $GOROOT -xf tmp/go.tar.gz
