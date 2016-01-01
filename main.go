@@ -4,13 +4,12 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"fmt"
 	"log/syslog"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
-	"github.com/vishvananda/netlink/nl"
 	"gopkg.in/alexzorin/libvirt-go.v2"
 	"gopkg.in/yaml.v2"
 )
@@ -19,8 +18,6 @@ func init() {
 	flag.Parse()
 }
 
-var kvm bool
-var xen bool
 var l *syslog.Writer
 var viruri string
 var master_iface string = "vlan1001"
@@ -31,7 +28,7 @@ func getVirConn() libvirt.VirConnection {
 	if !first {
 		if ok, err := virconn.IsAlive(); !ok || err != nil {
 			for {
-				vc, err := libvirt.NewVirConnectionReadOnly(viruri)
+				vc, err := libvirt.NewVirConnection(viruri)
 				if err == nil {
 					virconn = vc
 					return virconn
@@ -42,7 +39,7 @@ func getVirConn() libvirt.VirConnection {
 		}
 	} else {
 		for {
-			vc, err := libvirt.NewVirConnectionReadOnly(viruri)
+			vc, err := libvirt.NewVirConnection(viruri)
 			if err == nil {
 				first = false
 				virconn = vc
@@ -56,6 +53,7 @@ func getVirConn() libvirt.VirConnection {
 }
 
 func main() {
+     var vc libvirt.VirConnection
 	var err error
 	var buf []byte
 	var data map[string]string
@@ -72,51 +70,13 @@ func main() {
 		}
 	}
 
-	vc := getVirConn()
-	defer vc.UnrefAndCloseConnection()
-
-	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
-	if err != nil {
-		l.Err(err.Error())
-		os.Exit(1)
-	}
-	defer nlink.Close()
-
-	_, err = os.Stat("/sys/module/kvm")
-	if err == nil {
-		kvm = true
-	}
 	_, err = os.Stat("/sys/module/xenfs")
 	if err == nil {
-		xen = true
-	}
-
-	if !kvm && !xen {
-		l.Err("hypervisor not detected")
-		os.Exit(1)
-	}
-
-	if kvm {
-		viruri = "qemu:///system"
-	}
-
-	if xen {
 		viruri = "xen:///"
-	}
+	} else {
+	        viruri = "qemu:///system"
+        }
 
-	if virdomains, err := vc.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE | libvirt.VIR_CONNECT_LIST_DOMAINS_INACTIVE); err == nil {
-		for _, d := range virdomains {
-			domName, err := d.GetName()
-			if err != nil {
-				continue
-			}
-			if _, ok := servers[domName]; !ok {
-				servers[domName] = &Server{name: domName}
-				l.Info(domName + " start serving")
-				go servers[domName].Start()
-			}
-		}
-	}
 
 	l.Info("ListenAndServeTCPv4")
 	go ListenAndServeTCPv4()
@@ -131,6 +91,7 @@ func main() {
 
 	callback := libvirt.DomainEventCallback(
 		func(c *libvirt.VirConnection, d *libvirt.VirDomain, eventDetails interface{}, f func()) int {
+		fmt.Printf("callback\n")
 			if lifecycleEvent, ok := eventDetails.(libvirt.DomainLifecycleEvent); ok {
 				domName, err := d.GetName()
 				if err != nil {
@@ -154,6 +115,8 @@ func main() {
 						l.Info(domName + " stop serving")
 						delete(servers, domName)
 					}
+					default:
+					fmt.Printf("%#+v\n", eventDetails)
 				}
 			}
 			f()
@@ -161,16 +124,42 @@ func main() {
 		},
 	)
 
+	fmt.Printf("default event impl\n")
 	libvirt.EventRegisterDefaultImpl()
 
+        vc = getVirConn()
+        defer vc.UnrefAndCloseConnection()
+
+	fmt.Printf("register event\n")
 	callbackId = vc.DomainEventRegister(
 		libvirt.VirDomain{},
 		libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
 		&callback,
 		func() {},
-	)
 
+	)
+	fmt.Printf("callback id %d\n", callbackId)
+
+        if virdomains, err := vc.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE | libvirt.VIR_CONNECT_LIST_DOMAINS_INACTIVE); err == nil {
+                for _, d := range virdomains {
+                        domName, err := d.GetName()
+                        if err != nil {
+                                continue
+                        }
+                        if _, ok := servers[domName]; !ok {
+                                servers[domName] = &Server{name: domName}
+                                l.Info(domName + " start serving")
+                                go servers[domName].Start()
+                        }
+                }
+        }
+
+
+	fmt.Printf("run event\n")
+	for {
 	libvirt.EventRunDefaultImpl()
+//select{}
+}
 	// Deregister the event
 	if ret := vc.DomainEventDeregister(callbackId); ret < 0 {
 		l.Info("Event deregistration failed")
