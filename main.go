@@ -5,9 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"log/syslog"
-	"net"
 	"os"
-	"strings"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -60,7 +59,7 @@ func main() {
 	var err error
 	var buf []byte
 	var data map[string]string
-	l, err = syslog.Dial("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, "svirtnet")
+	l, err = syslog.Dial("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, filepath.Base(os.Args[0]))
 	if err != nil {
 		log.Fatalf("Failed to connect to syslog: %s\n", err.Error())
 		os.Exit(1)
@@ -72,17 +71,6 @@ func main() {
 			master_iface = data["interface"]
 		}
 	}
-
-	/*
-		_, err = os.Stat("/srv/iso")
-		if err != nil {
-			err = os.MkdirAll("/srv/iso", 0770)
-			if err != nil {
-				l.Info(fmt.Sprintf("Failed to create dir: %s\n", err.Error()))
-				os.Exit(1)
-			}
-		}
-	*/
 
 	vc := getVirConn()
 	defer vc.UnrefAndCloseConnection()
@@ -116,90 +104,70 @@ func main() {
 		viruri = "xen:///"
 	}
 
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		l.Err(err.Error())
-		os.Exit(1)
-	}
-
-	for _, iface := range ifaces {
-		name := iface.Name
-		l.Info("Check iface " + name)
-		if !strings.HasPrefix(name, "tap") && !strings.HasPrefix(name, "vif") {
-			continue
-		}
-		if _, ok := servers[name[3:]]; !ok {
-			s := &Server{name: name[3:]}
-			servers[name[3:]] = s
-			l.Info(name[3:] + " start serving")
-			go s.Start()
+	if virdomains, err := vc.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE | libvirt.VIR_CONNECT_LIST_DOMAINS_INACTIVE); err == nil {
+		for _, d := range virdomains {
+			domName, err := d.GetName()
+			if err != nil {
+				continue
+			}
+			if _, ok := servers[domName]; !ok {
+				servers[domName] = &Server{name: domName}
+				l.Info(domName + " start serving")
+				go servers[domName].Start()
+			}
 		}
 	}
 
 	l.Info("ListenAndServeTCPv4")
 	go ListenAndServeTCPv4()
 
-	for {
-		msgs, err := nlink.Recieve()
-		if err != nil {
-			l.Warning("netlink err: " + err.Error())
-			continue
+	callbackId := -1
+	defer func() {
+		if callbackId >= 0 {
+			vc.DomainEventDeregister(callbackId)
 		}
-	loop:
-		for _, msg := range msgs {
-			switch msg.Header.Type {
-			case syscall.NLMSG_DONE:
-				break loop
-			case syscall.RTM_NEWLINK:
-				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
+		vc.CloseConnection()
+	}()
+
+	callback := libvirt.DomainEventCallback(
+		func(c *libvirt.VirConnection, d *libvirt.VirDomain, eventDetails interface{}, f func()) int {
+			if lifecycleEvent, ok := eventDetails.(libvirt.DomainLifecycleEvent); ok {
+				domName, err := d.GetName()
 				if err != nil {
-					l.Warning("netlink err: " + err.Error())
-					continue
+					return -1
 				}
-				for _, attr := range attrs {
-					switch attr.Attr.Type {
-					case syscall.IFLA_IFNAME:
-						name := string(attr.Value[:len(attr.Value)-1])
-						if strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vif") {
-						Loop:
-							if s, ok := servers[name[3:]]; !ok {
-								s = &Server{name: name[3:]}
-								servers[name[3:]] = s
-								go func() {
-									s.Start()
-									l.Info(name[3:] + " start serving")
-								}()
-							} else {
-								if s.shutdown {
-									time.Sleep(2 * time.Second)
-									goto Loop
-								}
-							}
-						}
+				switch lifecycleEvent.Event {
+				case libvirt.VIR_DOMAIN_EVENT_STARTED:
+					if _, ok := servers[domName]; !ok {
+						servers[domName] = &Server{name: domName}
+						go servers[domName].Start()
+						l.Info(domName + " start serving")
+						//					} else {
+						//						if s.shutdown {
+						//							time.Sleep(2 * time.Second)
+						//							goto Loop
+						//						}
 					}
-				}
-			case syscall.RTM_DELLINK:
-				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
-				if err != nil {
-					l.Warning("netlink err: " + err.Error())
-					continue
-				}
-				for _, attr := range attrs {
-					switch attr.Attr.Type {
-					case syscall.IFLA_IFNAME:
-						name := string(attr.Value[:len(attr.Value)-1])
-						if strings.HasPrefix(name, "tap") || strings.HasPrefix(name, "vif") {
-							if s, ok := servers[name[3:]]; ok {
-								go func() {
-									s.Stop()
-									l.Info(name[3:] + " stop serving")
-									delete(servers, name[3:])
-								}()
-							}
-						}
+				case libvirt.VIR_DOMAIN_EVENT_STOPPED:
+					if s, ok := servers[domName]; ok {
+						s.Stop()
+						l.Info(domName + " stop serving")
+						delete(servers, domName)
 					}
 				}
 			}
-		}
-	}
+			f()
+			return 0
+		},
+	)
+
+	libvirt.EventRegisterDefaultImpl()
+
+	callbackId = vc.DomainEventRegister(
+		libvirt.VirDomain{},
+		libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+		&callback,
+		func() {},
+	)
+
 }
