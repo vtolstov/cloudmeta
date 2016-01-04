@@ -82,6 +82,7 @@ func main() {
 
 	callbackId := -1
 	defer func() {
+		vc := getVirConn()
 		if callbackId >= 0 {
 			vc.DomainEventDeregister(callbackId)
 		}
@@ -110,7 +111,7 @@ func main() {
 						//						}
 					}
 					srvmutex.Unlock()
-				case libvirt.VIR_DOMAIN_EVENT_STOPPED:
+				case libvirt.VIR_DOMAIN_EVENT_STOPPED, libvirt.VIR_DOMAIN_EVENT_SHUTDOWN, libvirt.VIR_DOMAIN_EVENT_CRASHED:
 					srvmutex.Lock()
 					if s, ok := servers[domName]; ok {
 						s.Stop()
@@ -130,7 +131,7 @@ func main() {
 	libvirt.EventRegisterDefaultImpl()
 
 	vc = getVirConn()
-	defer vc.UnrefAndCloseConnection()
+	//	defer vc.UnrefAndCloseConnection()
 
 	callbackId = vc.DomainEventRegister(
 		libvirt.VirDomain{},
