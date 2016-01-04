@@ -121,7 +121,7 @@ func cleanExists(name string, ips []IP) []IP {
 }
 
 var servers map[string]*Server
-var srvmutex *sync.Mutex
+var srvmutex sync.Mutex
 
 func init() {
 	servers = make(map[string]*Server, 1024)
