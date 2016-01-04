@@ -91,6 +91,10 @@ func main() {
 
 	callback := libvirt.DomainEventCallback(
 		func(c *libvirt.VirConnection, d *libvirt.VirDomain, eventDetails interface{}, f func()) int {
+			if d == nil {
+				return -1
+			}
+
 			if lifecycleEvent, ok := eventDetails.(libvirt.DomainLifecycleEvent); ok {
 				domName, err := d.GetName()
 				if err != nil {
@@ -123,7 +127,7 @@ func main() {
 					fmt.Printf("%#+v\n", eventDetails)
 				}
 			}
-			f()
+			//			f()
 			return 0
 		},
 	)
