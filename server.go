@@ -222,7 +222,7 @@ func (s *Server) Start() error {
 		}
 	}
 
-	l.Info(fmt.Sprintf("wait for iface tap%s up to 10s", s.name))
+	l.Info(fmt.Sprintf("%s wait for iface tap%s up to 10s", s.name, s.name))
 	iface_ready := false
 	for i := 0; i < 10; i++ {
 		if _, err := net.InterfaceByName("tap" + s.name); err == nil {
@@ -233,16 +233,16 @@ func (s *Server) Start() error {
 	}
 
 	if !iface_ready {
-		return fmt.Errorf("timeout waiting for iface tap%s", s.name)
+		return fmt.Errorf("%s timeout waiting for iface tap%s", s.name, s.name)
 	}
 
-	l.Info(fmt.Sprintf("run commands"))
+	//	l.Info(fmt.Sprintf("run commands"))
 	for _, cmd := range cmds {
-		l.Info(fmt.Sprintf("exec %s", strings.Join(cmd.Args, " ")))
+		l.Info(fmt.Sprintf("%s exec %s", s.name, strings.Join(cmd.Args, " ")))
 		err = cmd.Run()
 		if err != nil {
-			l.Info(fmt.Sprintf("Failed to run cmd %s: %s", strings.Join(cmd.Args, " "), err))
-			return fmt.Errorf("Failed to run cmd %s: %s", strings.Join(cmd.Args, " "), err)
+			l.Info(fmt.Sprintf("%s Failed to run cmd %s: %s", s.name, strings.Join(cmd.Args, " "), err))
+			return fmt.Errorf("%s Failed to run cmd %s: %s", s.name, strings.Join(cmd.Args, " "), err)
 		}
 	}
 
@@ -276,7 +276,7 @@ func (s *Server) Stop() (err error) {
 
 	var cmds []*exec.Cmd
 	if s.metadata != nil && len(s.metadata.Network.IP) > 0 {
-		l.Info(fmt.Sprintf("add commands"))
+		//		l.Info(fmt.Sprintf("add commands"))
 		for _, addr := range s.metadata.Network.IP {
 			if addr.Family == "ipv4" && addr.Host == "true" {
 				// TODO: use netlink
@@ -291,9 +291,9 @@ func (s *Server) Stop() (err error) {
 				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		}
-		l.Info(fmt.Sprintf("run commands"))
+		//		l.Info(fmt.Sprintf("run commands"))
 		for _, cmd := range cmds {
-			l.Info(fmt.Sprintf("exec %s", cmd))
+			l.Info(fmt.Sprintf("%s exec %s", s.name, cmd))
 			err = cmd.Run()
 			if err != nil {
 				l.Info(fmt.Sprintf("Failed to run cmd %s: %s", cmd, err))
