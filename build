@@ -27,9 +27,11 @@ fi
 
 if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
         mkdir -p $GOPATH/src/${ORG_PATH}
-        ln -s ../../../.. $GOPATH/src/${REPO_PATH} || echo "exit 255"
+        ln -sv ../../../.. $GOPATH/src/${REPO_PATH} || echo "exit 255"
 fi
 
+go version
+export
 set -e
 
 GOOS=linux GOARCH=amd64 go build -x -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet ${REPO_PATH}
