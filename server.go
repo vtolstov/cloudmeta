@@ -121,6 +121,7 @@ func cleanExists(name string, ips []IP) []IP {
 }
 
 var servers map[string]*Server
+var srvmutex *sync.Mutex
 
 func init() {
 	servers = make(map[string]*Server, 1024)
@@ -237,11 +238,11 @@ func (s *Server) Start() error {
 
 	l.Info(fmt.Sprintf("run commands"))
 	for _, cmd := range cmds {
-		l.Info(fmt.Sprintf("exec %s", cmd))
+		l.Info(fmt.Sprintf("exec %s with args %s", cmd.Path, strings.Join(cmd.Args, " ")))
 		err = cmd.Run()
 		if err != nil {
-			l.Info(fmt.Sprintf("Failed to run cmd %s: %s", cmd, err))
-			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
+			l.Info(fmt.Sprintf("Failed to run cmd %s with args: %s", cmd.Path, strings.Join(cmd.Args, " "), err))
+			return fmt.Errorf("Failed to run cmd %s with args: %s", cmd.Path, strings.Join(cmd.Args, " "), err)
 		}
 	}
 

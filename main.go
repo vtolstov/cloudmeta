@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"log/syslog"
@@ -96,6 +97,7 @@ func main() {
 				}
 				switch lifecycleEvent.Event {
 				case libvirt.VIR_DOMAIN_EVENT_STARTED:
+					srvmutex.Lock()
 					if _, ok := servers[domName]; !ok {
 						servers[domName] = &Server{name: domName}
 						go servers[domName].Start()
@@ -106,14 +108,17 @@ func main() {
 						//							goto Loop
 						//						}
 					}
+					srvmutex.Unlock()
 				case libvirt.VIR_DOMAIN_EVENT_STOPPED:
+					srvmutex.Lock()
 					if s, ok := servers[domName]; ok {
 						s.Stop()
 						l.Info(domName + " stop serving")
 						delete(servers, domName)
 					}
-					//				default:
-					//					fmt.Printf("%#+v\n", eventDetails)
+					srvmutex.Unlock()
+				default:
+					fmt.Printf("%#+v\n", eventDetails)
 				}
 			}
 			f()
