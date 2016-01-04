@@ -154,17 +154,20 @@ func main() {
 			if err != nil {
 				continue
 			}
+			srvmutex.Lock()
 			if _, ok := servers[domName]; !ok {
 				servers[domName] = &Server{name: domName}
 				l.Info(domName + " start serving")
 				go servers[domName].Start()
 			}
+			srvmutex.Unlock()
 		}
 	}
 
 	for {
 		libvirt.EventRunDefaultImpl()
 	}
+
 	// Deregister the event
 	if ret := vc.DomainEventDeregister(callbackId); ret < 0 {
 		l.Info("Event deregistration failed")
