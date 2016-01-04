@@ -93,6 +93,7 @@ func main() {
 			if lifecycleEvent, ok := eventDetails.(libvirt.DomainLifecycleEvent); ok {
 				domName, err := d.GetName()
 				if err != nil {
+					l.Info("failed to get domain name")
 					return -1
 				}
 				switch lifecycleEvent.Event {
