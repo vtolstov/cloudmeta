@@ -10,7 +10,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv6"
+	"golang.org/x/net/ipv6"
 )
 
 func (s *Server) ListenAndServeICMPv6() {

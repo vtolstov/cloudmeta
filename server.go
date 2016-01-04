@@ -15,8 +15,8 @@ import (
 
 	"crypto/tls"
 
-	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv4"
-	"github.com/vtolstov/svirtnet/internal/golang.org/x/net/ipv6"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"gopkg.in/alexzorin/libvirt-go.v2"
 )
 
