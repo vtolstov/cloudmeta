@@ -2,9 +2,9 @@
 
 ORG_PATH="github.com/vtolstov"
 REPO_PATH="${ORG_PATH}/cloudmeta"
-VERSION=`git describe --long`
-BUILD_TIME=`date +%FT%T%z`
-LDFLAGS="-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
+#VERSION=`git describe --long`
+#BUILD_TIME=`date +%FT%T%z`
+#LDFLAGS="-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
 
 
 rm -rf bin tmp
@@ -21,7 +21,7 @@ go version | grep -q go1.5
 if [ "x$?" != "x0" ]; then
     export GOROOT=$(pwd)/goroot
     mkdir -p $GOROOT
-    wget https://storage.googleapis.com/golang/go1.5.linux-amd64.tar.gz -O tmp/go.tar.gz
+    wget -q https://storage.googleapis.com/golang/go1.5.linux-amd64.tar.gz -O tmp/go.tar.gz
     tar --strip-components=1 -C $GOROOT -xf tmp/go.tar.gz
 fi
 
