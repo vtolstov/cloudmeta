@@ -221,6 +221,20 @@ func (s *Server) Start() error {
 		}
 	}
 
+	l.Info(fmt.Sprintf("wait for iface tap%s up to 10s", s.name))
+	iface_ready := false
+	for i := 0; i < 10; i++ {
+		if _, err := net.InterfaceByName("tap" + s.name); err == nil {
+			iface_ready = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !iface_ready {
+		return fmt.Errorf("timeout waiting for iface tap%s", s.name)
+	}
+
 	l.Info(fmt.Sprintf("run commands"))
 	for _, cmd := range cmds {
 		l.Info(fmt.Sprintf("exec %s", cmd))
