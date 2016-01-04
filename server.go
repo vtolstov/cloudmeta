@@ -238,11 +238,11 @@ func (s *Server) Start() error {
 
 	l.Info(fmt.Sprintf("run commands"))
 	for _, cmd := range cmds {
-		l.Info(fmt.Sprintf("exec %s with args %s", cmd.Path, strings.Join(cmd.Args, " ")))
+		l.Info(fmt.Sprintf("exec %s", strings.Join(cmd.Args, " ")))
 		err = cmd.Run()
 		if err != nil {
-			l.Info(fmt.Sprintf("Failed to run cmd %s with args: %s", cmd.Path, strings.Join(cmd.Args, " "), err))
-			return fmt.Errorf("Failed to run cmd %s with args: %s", cmd.Path, strings.Join(cmd.Args, " "), err)
+			l.Info(fmt.Sprintf("Failed to run cmd %s: %s", strings.Join(cmd.Args, " "), err))
+			return fmt.Errorf("Failed to run cmd %s: %s", strings.Join(cmd.Args, " "), err)
 		}
 	}
 
