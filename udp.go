@@ -130,7 +130,6 @@ func (s *Server) ListenAndServeUDPv4() {
 					buf := gopacket.NewSerializeBuffer()
 					opts := gopacket.SerializeOptions{true, true}
 					gopacket.SerializeLayers(buf, opts,
-						/*					&layers.IPv4{Version: 4, TTL: 255, SrcIP: gw.To4(), DstIP: net.IPv4bcast.To4()}, */
 						&layers.UDP{SrcPort: 67, DstPort: 68},
 						dhcp4res)
 
@@ -143,6 +142,8 @@ func (s *Server) ListenAndServeUDPv4() {
 						l.Warning(err.Error())
 						continue
 					}
+				} else {
+					l.Warning("unknown dhcp operation %#+v\n", dhcp4req)
 				}
 			}
 		}
