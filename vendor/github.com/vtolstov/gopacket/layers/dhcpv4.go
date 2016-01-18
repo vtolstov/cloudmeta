@@ -415,7 +415,7 @@ type DHCPOption struct {
 func (o DHCPOption) String() string {
 	switch o.Type {
 	case DHCP_OPT_SUBNET_MASK, DHCP_OPT_DEFAULT_GATEWAY, DHCP_OPT_TIME_SERVER, DHCP_OPT_NAME_SERVER, DHCP_OPT_LOG_SERVER, DHCP_OPT_BROADCAST_ADDR, DHCP_OPT_SERVER_ID, DHCP_OPT_REQUEST_IP, DHCP_OPT_DOMAIN_NAME_SERVERS:
-		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], net.ParseIP(fmt.Sprintf("%s", o.Data)))
+		return fmt.Sprintf("Option(%v:%v    %s)", DHCPOptionTypeStrings[o.Type], o.Data, net.ParseIP(fmt.Sprintf("%s", o.Data)))
 	case DHCP_OPT_HOST_NAME, DHCP_OPT_DOMAIN_NAME:
 		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], o.Data)
 	case DHCP_OPT_INTERFACE_MTU:
