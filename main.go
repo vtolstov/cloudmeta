@@ -143,7 +143,7 @@ func main() {
 		libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
 		&callback,
 		func() {
-			fmt.Printf("catch")
+			fmt.Sprintf("catch")
 		},
 	)
 	if callbackId < 0 {
