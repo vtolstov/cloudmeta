@@ -126,6 +126,10 @@ func (s *Server) ListenAndServeUDPv4() {
 						l.Warning(err.Error())
 						continue
 					}
+					if dhcp4res == nil {
+						// ignore empty dhcp packets
+						continue
+					}
 
 					buf := gopacket.NewSerializeBuffer()
 					opts := gopacket.SerializeOptions{true, true}
@@ -143,7 +147,9 @@ func (s *Server) ListenAndServeUDPv4() {
 						continue
 					}
 				} else {
-					l.Warning("unknown dhcp operation %#+v\n", dhcp4req)
+					//l.Warning("unknown dhcp operation %#+v\n", dhcp4req)
+					// ignore response packets
+					continue
 				}
 			}
 		}
