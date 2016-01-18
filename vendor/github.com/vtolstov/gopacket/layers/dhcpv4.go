@@ -421,7 +421,7 @@ func (o DHCPOption) String() string {
 	case DHCP_OPT_INTERFACE_MTU:
 		return fmt.Sprintf("Option(%v:%d)", DHCPOptionTypeStrings[o.Type], o.Data)
 	case DHCP_OPT_MESSAGE_TYPE:
-		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], messageTypes[uint8(o.Data)])
+		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], messageTypes[DHCPOperation(o.Data[0])])
 	}
 	return fmt.Sprintf("Option(%v:%v)", DHCPOptionTypeStrings[o.Type], o.Data)
 }
