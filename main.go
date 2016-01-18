@@ -98,13 +98,13 @@ func main() {
 			}
 
 			if lifecycleEvent, ok := eventDetails.(libvirt.DomainLifecycleEvent); ok {
-				domName, err := d.GetName()
-				if err != nil {
-					l.Info("failed to get domain name")
-					return -1
-				}
 				switch lifecycleEvent.Event {
 				case libvirt.VIR_DOMAIN_EVENT_STARTED:
+					domName, err := d.GetName()
+					if err != nil {
+						l.Info("failed to get domain name")
+						return -1
+					}
 					srvmutex.Lock()
 					if _, ok := servers[domName]; !ok {
 						servers[domName] = &Server{name: domName}
@@ -118,6 +118,11 @@ func main() {
 					}
 					srvmutex.Unlock()
 				case libvirt.VIR_DOMAIN_EVENT_STOPPED, libvirt.VIR_DOMAIN_EVENT_SHUTDOWN, libvirt.VIR_DOMAIN_EVENT_CRASHED:
+					domName, err := d.GetName()
+					if err != nil {
+						l.Info("failed to get domain name")
+						return -1
+					}
 					srvmutex.Lock()
 					if s, ok := servers[domName]; ok {
 						s.Stop()
