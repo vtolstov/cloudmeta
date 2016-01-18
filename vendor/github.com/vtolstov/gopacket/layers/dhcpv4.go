@@ -267,14 +267,6 @@ func (p *DHCPv4) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	pFile := string(p.File)
-	if pFile == "" {
-		pFile = "<nil>"
-	}
-	pServerName := string(p.ServerName)
-	if pServerName == "" {
-		pServerName = "<nil>"
-	}
 	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %v", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, p.ClientIP, p.YourIP, p.ServerIP, p.GatewayIP, p.ClientHWAddr, p.Options)
 }
 
@@ -414,7 +406,7 @@ type DHCPOption struct {
 func (o DHCPOption) String() string {
 	switch o.Type {
 	case DHCP_OPT_SUBNET_MASK, DHCP_OPT_DEFAULT_GATEWAY, DHCP_OPT_TIME_SERVER, DHCP_OPT_NAME_SERVER, DHCP_OPT_LOG_SERVER, DHCP_OPT_BROADCAST_ADDR, DHCP_OPT_SERVER_ID, DHCP_OPT_REQUEST_IP:
-		fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], net.ParseIP(o.Data).String())
+		fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], net.ParseIP(string(o.Data)).String())
 	case DHCP_OPT_HOST_NAME:
 		fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], string(o.Data))
 	}
