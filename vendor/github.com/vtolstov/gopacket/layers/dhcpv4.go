@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strings"
 
 	"github.com/vtolstov/gopacket"
 )
@@ -401,6 +402,14 @@ type DHCPOption struct {
 	Type   uint8
 	Length uint8
 	Data   []byte
+}
+
+func (opts []DHCPOption) String() string {
+	var lines []string
+	for _, opt := range opts {
+		lines = append(lines, fmt.Sprintf("%s", opt.String()))
+	}
+	return strings.Join(lines, ", ")
 }
 
 func (o DHCPOption) String() string {
