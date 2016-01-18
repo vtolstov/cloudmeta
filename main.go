@@ -86,7 +86,8 @@ func main() {
 		if callbackId >= 0 {
 			vc.DomainEventDeregister(callbackId)
 		}
-		vc.CloseConnection()
+		//	vc.CloseConnection()
+		vc.UnrefAndCloseConnection()
 	}()
 
 	callback := libvirt.DomainEventCallback(
@@ -127,7 +128,7 @@ func main() {
 					fmt.Printf("%#+v\n", eventDetails)
 				}
 			}
-			//			f()
+			f()
 			return 0
 		},
 	)
@@ -141,7 +142,9 @@ func main() {
 		libvirt.VirDomain{},
 		libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
 		&callback,
-		func() {},
+		func() {
+			fmt.Printf("catch")
+		},
 	)
 	if callbackId < 0 {
 		log.Fatalf("libvirt event registration failed")
