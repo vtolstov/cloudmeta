@@ -252,7 +252,7 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			bs = b[:2]
 			binary.BigEndian.PutUint16(bs, uint16(1500))
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(layers.DHCP_OPT_INTERFACE_MTU, bs))
-		case layers.DHCPOperation(layers.DHCP_MSG_OFFER), layers.DHCPOperation(layers.DHCP_MSG_ACK):
+		case layers.DHCPOperation(layers.DHCP_MSG_ACK):
 			return nil, nil
 		default:
 			return nil, fmt.Errorf("unk dhcp msg: %d\n", layers.DHCPOperation(opt.Data[0]))
