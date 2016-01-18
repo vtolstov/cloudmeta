@@ -25,6 +25,8 @@ func (s *Server) ListenAndServeICMPv6() {
 		l.Info("error: " + err.Error())
 		return
 	}
+	s.Lock()
+	defer s.Unlock()
 	s.ipv6conn = ipv6.NewPacketConn(conn)
 
 	if err = s.ipv6conn.SetControlMessage(ipv6.FlagDst, true); err != nil {
@@ -37,12 +39,11 @@ func (s *Server) ListenAndServeICMPv6() {
 	go s.Unsolicitated()
 
 	for {
-		//		s.RLock()
+		s.Lock()
 		if s.shutdown {
-			//		s.RUnlock()
 			return
 		}
-		//s.RUnlock()
+		s.Unlock()
 
 		s.ipv6conn.SetReadDeadline(time.Now().Add(time.Second))
 		_, _, src, err := s.ipv6conn.ReadFrom(buffer)
@@ -88,10 +89,12 @@ func (s *Server) Unsolicitated() {
 func (s *Server) sendRA(src net.Addr) {
 	var srcIP net.IP
 	var ipAddr net.Addr
-
+	s.Lock()
 	if s.metadata == nil {
+		s.Unlock()
 		return
 	}
+	s.Unlock()
 
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {

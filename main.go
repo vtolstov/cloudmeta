@@ -86,6 +86,7 @@ func main() {
 		if callbackId >= 0 {
 			vc.DomainEventDeregister(callbackId)
 		}
+		fmt.Printf("close libvirt conn\n")
 		//	vc.CloseConnection()
 		vc.UnrefAndCloseConnection()
 	}()

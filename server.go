@@ -152,6 +152,7 @@ func (s *Server) Start() error {
 		l.Info("failed to get metadata from libvirt: " + err.Error())
 		return err
 	}
+
 	s.metadata = &Metadata{}
 	if err = xml.Unmarshal([]byte(buf), s.metadata); err != nil {
 		l.Info("failed to get unmarshal xml from libvirt: " + err.Error())
@@ -301,7 +302,9 @@ func (s *Server) Stop() (err error) {
 			}
 		}
 	}
+	s.Lock()
 	s.metadata = nil
+	s.Unlock()
 	return nil
 }
 
