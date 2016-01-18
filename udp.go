@@ -258,6 +258,6 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			return nil, fmt.Errorf("unk dhcp msg: %d\n", layers.DHCPOperation(opt.Data[0]))
 		}
 	}
-
+	l.Info(fmt.Sprintf("%s dhcpv4 res: %+v\n", s.name, dhcpres))
 	return dhcpres, nil
 }
