@@ -276,7 +276,7 @@ func (p *DHCPv4) String() string {
 		}
 		options = strings.Join(lines, ", ")
 	}
-	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %s", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, net.ParseIP(fmt.Sprintf("%s", p.ClientIP)), net.ParseIP(fmt.Sprintf("%s", p.YourIP)), net.ParseIP(fmt.Sprintf("%s", p.ServerIP)), net.ParseIP(fmt.Sprintf("%s", p.GatewayIP)), p.ClientHWAddr.String(), options)
+	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %s", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, net.ParseIP(fmt.Sprintf("%s", p.ClientIP)), net.ParseIP(fmt.Sprintf("%s", p.YourIP)), net.ParseIP(fmt.Sprintf("%s", p.ServerIP)), net.ParseIP(fmt.Sprintf("%s", p.GatewayIP)), p.ClientHWAddr.String()[:16], options)
 }
 
 func (p *DHCPv4) SetBroadcast(broadcast bool) {
@@ -414,10 +414,14 @@ type DHCPOption struct {
 
 func (o DHCPOption) String() string {
 	switch o.Type {
-	case DHCP_OPT_SUBNET_MASK, DHCP_OPT_DEFAULT_GATEWAY, DHCP_OPT_TIME_SERVER, DHCP_OPT_NAME_SERVER, DHCP_OPT_LOG_SERVER, DHCP_OPT_BROADCAST_ADDR, DHCP_OPT_SERVER_ID, DHCP_OPT_REQUEST_IP:
-		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], net.ParseIP(fmt.Sprintf("%s", o.Data)).String())
+	case DHCP_OPT_SUBNET_MASK, DHCP_OPT_DEFAULT_GATEWAY, DHCP_OPT_TIME_SERVER, DHCP_OPT_NAME_SERVER, DHCP_OPT_LOG_SERVER, DHCP_OPT_BROADCAST_ADDR, DHCP_OPT_SERVER_ID, DHCP_OPT_REQUEST_IP, DHCP_OPT_DOMAIN_NAME_SERVERS:
+		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], net.ParseIP(fmt.Sprintf("%s", o.Data)))
 	case DHCP_OPT_HOST_NAME, DHCP_OPT_DOMAIN_NAME:
 		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], o.Data)
+	case DHCP_OPT_INTERFACE_MTU:
+		return fmt.Sprintf("Option(%v:%d)", DHCPOptionTypeStrings[o.Type], o.Data)
+	case DHCP_OPT_MESSAGE_TYPE:
+		return fmt.Sprintf("Option(%v:%s)", DHCPOptionTypeStrings[o.Type], messageTypes[uint8(o.Data)])
 	}
 	return fmt.Sprintf("Option(%v:%v)", DHCPOptionTypeStrings[o.Type], o.Data)
 }
