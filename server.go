@@ -132,12 +132,11 @@ func (s *Server) Start() error {
 	var err error
 	var domain libvirt.VirDomain
 
+	s.Lock()
+	defer s.Unlock()
 	if s.name == "" {
 		return errors.New("invalid server config")
 	}
-
-	s.Lock()
-	defer s.Unlock()
 
 	vc := getVirConn()
 	domain, err = vc.LookupDomainByName(s.name)
@@ -302,9 +301,7 @@ func (s *Server) Stop() (err error) {
 			}
 		}
 	}
-	s.Lock()
 	s.metadata = nil
-	s.Unlock()
 	return nil
 }
 

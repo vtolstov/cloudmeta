@@ -26,8 +26,8 @@ func (s *Server) ListenAndServeICMPv6() {
 		return
 	}
 	s.Lock()
-	defer s.Unlock()
 	s.ipv6conn = ipv6.NewPacketConn(conn)
+	s.Unlock()
 
 	if err = s.ipv6conn.SetControlMessage(ipv6.FlagDst, true); err != nil {
 		l.Info(err.Error())
@@ -90,11 +90,10 @@ func (s *Server) sendRA(src net.Addr) {
 	var srcIP net.IP
 	var ipAddr net.Addr
 	s.Lock()
+	defer s.Unlock()
 	if s.metadata == nil {
-		s.Unlock()
 		return
 	}
-	s.Unlock()
 
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {

@@ -46,8 +46,8 @@ func (s *Server) ListenAndServeUDPv4() {
 	}
 
 	s.Lock()
-	defer s.Unlock()
 	s.ipv4conn, err = ipv4.NewRawConn(conn)
+	s.Unlock()
 	if err != nil {
 		l.Info(err.Error())
 		return
@@ -77,6 +77,7 @@ func (s *Server) ListenAndServeUDPv4() {
 	for {
 		s.Lock()
 		if s.shutdown {
+			s.Unlock()
 			return
 		}
 		s.Unlock()
@@ -172,11 +173,10 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 	mac = dhcpreq.ClientHWAddr
 
 	s.Lock()
+	defer s.Unlock()
 	if s.metadata == nil {
-		s.Unlock()
 		return nil, fmt.Errorf("err: metadata is nil")
 	}
-	s.Unlock()
 
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "false" {
