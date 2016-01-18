@@ -16,6 +16,8 @@ import (
 
 func init() {
 	flag.Parse()
+	servers = make(map[string]*Server, 1024)
+	libvirt.EventRegisterDefaultImpl()
 }
 
 var l *syslog.Writer
@@ -138,8 +140,6 @@ func main() {
 			return 0
 		},
 	)
-
-	libvirt.EventRegisterDefaultImpl()
 
 	vc = getVirConn()
 	//	defer vc.UnrefAndCloseConnection()
