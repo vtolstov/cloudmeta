@@ -276,8 +276,7 @@ func (p *DHCPv4) String() string {
 		}
 		options = strings.Join(lines, ", ")
 	}
-	hwaddr, _ := net.ParseMAC(string(p.ClientHWAddr))
-	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %s", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, net.ParseIP(string(p.ClientIP)), net.ParseIP(string(p.YourIP)), net.ParseIP(string(p.ServerIP)), net.ParseIP(string(p.GatewayIP)), hwaddr, options)
+	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %s", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, net.ParseIP(fmt.Sprintf("%s", p.ClientIP)), net.ParseIP(fmt.Sprintf("%s", p.YourIP)), net.ParseIP(fmt.Sprintf("%s", p.ServerIP)), net.ParseIP(fmt.Sprintf("%s", p.GatewayIP)), p.ClientHWAddr.(HardwareAddr).String(), options)
 }
 
 func (p *DHCPv4) SetBroadcast(broadcast bool) {
