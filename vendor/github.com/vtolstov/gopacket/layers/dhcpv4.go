@@ -275,7 +275,7 @@ func (p *DHCPv4) String() string {
 	if pServerName == "" {
 		pServerName = "<nil>"
 	}
-	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, sname: %v, file: %v, options: %v", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, p.ClientIP, p.YourIP, p.ServerIP, p.GatewayIP, p.ClientHWAddr, pServerName, pFile, p.Options)
+	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %v", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, p.ClientIP, p.YourIP, p.ServerIP, p.GatewayIP, p.ClientHWAddr, p.Options)
 }
 
 func (p *DHCPv4) SetBroadcast(broadcast bool) {
