@@ -139,8 +139,8 @@ func (s *Server) Start() error {
 	s.Lock()
 	defer s.Unlock()
 
-	virconn = getVirConn()
-	domain, err = virconn.LookupDomainByName(s.name)
+	vc := getVirConn()
+	domain, err = vc.LookupDomainByName(s.name)
 	if err != nil {
 		l.Info("failed to lookup to libvirt: " + err.Error())
 		return err

@@ -195,8 +195,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		metadata.Meta.Hostname = s.name + "." + s.metadata.Network.DomainName
 		metadata.Hostname = s.name + "." + s.metadata.Network.DomainName
 
-		virconn = getVirConn()
-		domain, err := virconn.LookupDomainByName(s.name)
+		vc := getVirConn()
+		domain, err := vc.LookupDomainByName(s.name)
 		var uuid string
 		if err == nil {
 			uuid, _ = domain.GetUUIDString()
