@@ -189,7 +189,7 @@ func (s *Server) Start() error {
 		}
 	}
 
-	l.Info(fmt.Sprintf("add commands"))
+	//	l.Info(fmt.Sprintf("add commands"))
 	var cmds []*exec.Cmd
 	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" && addr.Peer != "" {
