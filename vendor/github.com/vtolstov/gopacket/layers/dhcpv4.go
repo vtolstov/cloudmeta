@@ -268,7 +268,15 @@ func (p *DHCPv4) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %v", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, p.ClientIP, p.YourIP, p.ServerIP, p.GatewayIP, p.ClientHWAddr, p.Options)
+	var options string
+	if len(p.Options) > 0 {
+		var lines []string
+		for _, opt := range p.Options {
+			lines = append(lines, fmt.Sprintf("%s", opt.String()))
+		}
+		options = strings.Join(lines, ", ")
+	}
+	return fmt.Sprintf("op: %s, htype: %v, hlen: %v, hopts: %v, xid: %#x, secs: %v, flags: %v, ciaddr: %v, yiaddr: %v, siaddr: %v, giaddr: %v, chaddr: %s, options: %s", p.Operation, p.HardwareType, p.HardwareLen, p.HardwareOpts, p.Xid, p.Secs, p.Flags, p.ClientIP, p.YourIP, p.ServerIP, p.GatewayIP, p.ClientHWAddr, options)
 }
 
 func (p *DHCPv4) SetBroadcast(broadcast bool) {
@@ -402,14 +410,6 @@ type DHCPOption struct {
 	Type   uint8
 	Length uint8
 	Data   []byte
-}
-
-func (opts []DHCPOption) String() string {
-	var lines []string
-	for _, opt := range opts {
-		lines = append(lines, fmt.Sprintf("%s", opt.String()))
-	}
-	return strings.Join(lines, ", ")
 }
 
 func (o DHCPOption) String() string {
