@@ -57,10 +57,11 @@ func main() {
 		}
 		br := bufio.NewReader(stdout)
 		for {
-			name, err := br.ReadString('\n')
+			line, err := br.ReadString('\n')
 			if err != nil {
 				break
 			}
+			name := strings.TrimSpace(line)
 			srvmutex.Lock()
 			if _, ok := servers[name]; !ok {
 				servers[name] = &Server{name: name}
@@ -95,7 +96,7 @@ func main() {
 				break
 			}
 			fields := strings.Fields(line) // event 'lifecycle' for domain 44253: Started Booted
-			name := fields[4]
+			name := strings.TrimRight(fields[4], ":")
 			events := fields[5:]
 			if strings.Index(strings.Join(events, " "), "Started") > 0 {
 				srvmutex.Lock()
