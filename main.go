@@ -1,16 +1,17 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"io/ioutil"
 	"log"
 	"log/syslog"
+	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
+	"syscall"
+
+	"github.com/vishvananda/netlink/nl"
 
 	"gopkg.in/yaml.v2"
 )
@@ -43,80 +44,91 @@ func main() {
 	l.Info("ListenAndServeTCPv4")
 	go ListenAndServeTCPv4()
 
-	go func() {
-		cmd := exec.Command("virsh", "list", "--name", "--all")
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			l.Info(err.Error())
-			os.Exit(1)
+	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
+	if err != nil {
+		l.Err(err.Error())
+		os.Exit(1)
+	}
+	defer nlink.Close()
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		l.Err(err.Error())
+		os.Exit(1)
+	}
+
+	for _, iface := range ifaces {
+		name := iface.Name
+		l.Info("Check iface " + name)
+		if !strings.HasPrefix(name, "tap") {
+			continue
 		}
-		defer stdout.Close()
-		if err = cmd.Start(); err != nil {
-			l.Info(err.Error())
-			os.Exit(1)
+		srvmutex.Lock()
+		if _, ok := servers[name[3:]]; !ok {
+			s := &Server{name: name[3:]}
+			servers[name[3:]] = s
+			l.Info(name[3:] + " start serving")
+			go s.Start()
 		}
-		br := bufio.NewReader(stdout)
-		for {
-			line, err := br.ReadString('\n')
-			if err != nil {
-				break
-			}
-			name := strings.TrimSpace(line)
-			if name != "" {
-				srvmutex.Lock()
-				if _, ok := servers[name]; !ok {
-					servers[name] = &Server{name: name}
-					l.Info(name + " start serving")
-					go servers[name].Start()
-				}
-				srvmutex.Unlock()
-			}
-		}
-		if err := cmd.Wait(); err != nil {
-			l.Info(err.Error())
-			os.Exit(1)
-		}
-	}()
+		srvmutex.Unlock()
+	}
 
 	for {
-		cmd := exec.Command("virsh", "event", "--loop", "--event", "lifecycle")
-		stdout, err := cmd.StdoutPipe()
+		msgs, err := nlink.Recieve()
 		if err != nil {
-			l.Info(err.Error())
-			time.Sleep(5 * time.Second)
+			l.Warning("netlink err: " + err.Error())
 			continue
 		}
-		if err = cmd.Start(); err != nil {
-			l.Info(err.Error())
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		br := bufio.NewReader(stdout)
-		for {
-			line, err := br.ReadString('\n')
-			if err != nil {
-				break
-			}
-			fields := strings.Fields(line) // event 'lifecycle' for domain 44253: Started Booted
-			name := strings.TrimRight(fields[4], ":")
-			events := fields[5:]
-			if strings.Index(strings.Join(events, " "), "Started") > 0 {
-				srvmutex.Lock()
-				if _, ok := servers[name]; !ok {
-					servers[name] = &Server{name: name}
-					go servers[name].Start()
-					l.Info(name + " start serving")
+	loop:
+		for _, msg := range msgs {
+			switch msg.Header.Type {
+			case syscall.NLMSG_DONE:
+				break loop
+			case syscall.RTM_NEWLINK:
+				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
+				if err != nil {
+					l.Warning("netlink err: " + err.Error())
+					continue
 				}
-				srvmutex.Unlock()
-			} else if strings.Index(strings.Join(events, " "), "Stopped") > 0 {
-				srvmutex.Lock()
-				if s, ok := servers[name]; ok {
-					s.Stop()
-					l.Info(name + " stop serving")
-					delete(servers, name)
+				for _, attr := range attrs {
+					switch attr.Attr.Type {
+					case syscall.IFLA_IFNAME:
+						name := string(attr.Value[:len(attr.Value)-1])
+						if strings.HasPrefix(name, "tap") {
+							srvmutex.Lock()
+							if s, ok := servers[name[3:]]; !ok {
+								s = &Server{name: name[3:]}
+								servers[name[3:]] = s
+								go s.Start()
+								l.Info(name[3:] + " start serving")
+								srvmutex.Unlock()
+							}
+						}
+					}
 				}
-				srvmutex.Unlock()
+			case syscall.RTM_DELLINK:
+				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
+				if err != nil {
+					l.Warning("netlink err: " + err.Error())
+					continue
+				}
+				for _, attr := range attrs {
+					switch attr.Attr.Type {
+					case syscall.IFLA_IFNAME:
+						name := string(attr.Value[:len(attr.Value)-1])
+						if strings.HasPrefix(name, "tap") {
+							srvmutex.Lock()
+							if s, ok := servers[name[3:]]; ok {
+								go s.Stop()
+								l.Info(name[3:] + " stop serving")
+								delete(servers, name[3:])
+								srvmutex.Unlock()
+							}
+						}
+					}
+				}
 			}
 		}
 	}
+
 }
