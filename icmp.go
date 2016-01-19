@@ -77,10 +77,13 @@ func (s *Server) Unsolicitated() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
+			s.Lock()
 			if s.shutdown {
+				s.Unlock()
 				ticker.Stop()
 				return
 			}
+			s.Unlock()
 			s.sendRA(nil)
 		}
 	}
@@ -154,7 +157,7 @@ func (s *Server) ServeICMPv6(src net.IP, req *ICMPv6) ([]*ICMPv6, error) {
 	var res []*ICMPv6
 	switch req.ICMPType() {
 	case ipv6.ICMPTypeRouterSolicitation:
-		for _, addr := range s.metadata.Network.IP {
+		for _, addr := range s.metadata.Config.Network.IP {
 			// TODO fix ipv6 addr
 			if addr.Family == "ipv6" && addr.Host == "true" {
 				ra := NewRouterAdvertisement(src, net.IPv6linklocalallnodes, addr.Address, addr.Prefix)

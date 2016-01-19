@@ -61,7 +61,7 @@ func (s *Server) ListenAndServeUDPv4() {
 	buffer := make([]byte, 1500)
 
 	var gw net.IP
-	for _, addr := range s.metadata.Network.IP {
+	for _, addr := range s.metadata.Config.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" && addr.Gateway == "true" {
 			gw = net.ParseIP(addr.Address)
 		}
@@ -178,7 +178,7 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 		return nil, fmt.Errorf("err: metadata is nil")
 	}
 
-	for _, addr := range s.metadata.Network.IP {
+	for _, addr := range s.metadata.Config.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "false" {
 			cidr = addr.Address + "/" + addr.Prefix
 			ip, ipnet, err = net.ParseCIDR(cidr)
@@ -210,10 +210,10 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			copy(dhcpres.ServerIP, gw.To4())
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(1, []byte(net.IP(ipnet.Mask).To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(3, []byte(gw.To4())))
-			//			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(5, []byte(net.ParseIP(s.metadata.Network.NameServer[0]).To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(6, []byte(net.ParseIP(s.metadata.Network.NameServer[0]).To4())))
+			//			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(5, []byte(net.ParseIP(s.metadata.Config.Network.NameServer[0]).To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(6, []byte(net.ParseIP(s.metadata.Config.Network.NameServer[0]).To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(28, []byte(net.ParseIP(cidr2bcast(cidr)).To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(15, []byte(s.metadata.Network.DomainName)))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(15, []byte(s.metadata.Config.Network.DomainName)))
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(12, []byte(s.name)))
 			var b [8]byte
 			var bs []byte
@@ -238,10 +238,10 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 			copy(dhcpres.ServerIP, gw.To4())
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(1, []byte(net.IP(ipnet.Mask).To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(3, []byte(gw.To4())))
-			//			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(5, []byte(net.ParseIP(s.metadata.Network.NameServer[0]).To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(6, []byte(net.ParseIP(s.metadata.Network.NameServer[0]).To4())))
+			//			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(5, []byte(net.ParseIP(s.metadata.Config.Network.NameServer[0]).To4())))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(6, []byte(net.ParseIP(s.metadata.Config.Network.NameServer[0]).To4())))
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(28, []byte(net.ParseIP(cidr2bcast(cidr)).To4())))
-			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(15, []byte(s.metadata.Network.DomainName)))
+			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(15, []byte(s.metadata.Config.Network.DomainName)))
 			dhcpres.Options = append(dhcpres.Options, layers.NewDHCPOption(12, []byte(s.name)))
 			var b [8]byte
 			var bs []byte

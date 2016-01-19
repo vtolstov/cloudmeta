@@ -17,7 +17,6 @@ import (
 
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
-	"gopkg.in/alexzorin/libvirt-go.v2"
 )
 
 type IP struct {
@@ -60,10 +59,12 @@ type Agent struct {
 }
 
 type Metadata struct {
-	Network     Network     `xml:"network"`
-	CloudConfig CloudConfig `xml:"cloud-config"`
-	ISO         ISO         `xml:"iso,omitempty"`
-	Agent       Agent       `xml:"agent,omitempty"`
+	Config struct {
+		Network     Network     `xml:"network"`
+		CloudConfig CloudConfig `xml:"cloud-config"`
+		ISO         ISO         `xml:"iso,omitempty"`
+		Agent       Agent       `xml:"agent,omitempty"`
+	} `xml:"config"`
 }
 
 var httpconn net.Listener
@@ -124,41 +125,30 @@ var servers map[string]*Server
 var srvmutex sync.Mutex
 
 func (s *Server) Start() error {
-	var buf string
-	var err error
-	var domain libvirt.VirDomain
-
 	s.Lock()
 	defer s.Unlock()
 	if s.name == "" {
 		return errors.New("invalid server config")
 	}
 
-	vc := getVirConn()
-	domain, err = vc.LookupDomainByName(s.name)
-	if err != nil {
-		l.Info("failed to lookup to libvirt: " + err.Error())
-		return err
-	}
-	defer domain.Free()
-
-	buf, err = domain.GetMetadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, "http://simplecloud.ru/", libvirt.VIR_DOMAIN_MEM_LIVE)
+	cmd := exec.Command("virsh", "metadata", "--domain", s.name, "--uri", "http://simplecloud.ru/", "--live")
+	buf, err := cmd.Output()
 	if err != nil {
 		l.Info("failed to get metadata from libvirt: " + err.Error())
 		return err
 	}
 
 	s.metadata = &Metadata{}
-	if err = xml.Unmarshal([]byte(buf), s.metadata); err != nil {
+	if err = xml.Unmarshal(buf, s.metadata); err != nil {
 		l.Info("failed to get unmarshal xml from libvirt: " + err.Error())
 		return err
 	}
 
-	if len(s.metadata.Network.NameServer) == 0 {
-		s.metadata.Network.NameServer = []string{"8.8.8.8"}
+	if len(s.metadata.Config.Network.NameServer) == 0 {
+		s.metadata.Config.Network.NameServer = []string{"8.8.8.8"}
 	}
-	if s.metadata.Network.DomainName == "" {
-		s.metadata.Network.DomainName = "simplecloud.club"
+	if s.metadata.Config.Network.DomainName == "" {
+		s.metadata.Config.Network.DomainName = "simplecloud.club"
 	}
 
 	iface, err := net.InterfaceByName(master_iface)
@@ -187,7 +177,7 @@ func (s *Server) Start() error {
 
 	//	l.Info(fmt.Sprintf("add commands"))
 	var cmds []*exec.Cmd
-	for _, addr := range s.metadata.Network.IP {
+	for _, addr := range s.metadata.Config.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" && addr.Peer != "" {
 			cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 		}
@@ -196,7 +186,7 @@ func (s *Server) Start() error {
 		}
 	}
 
-	metaIP := cleanExists(s.name, s.metadata.Network.IP)
+	metaIP := cleanExists(s.name, s.metadata.Config.Network.IP)
 	for _, addr := range metaIP {
 		if addr.Family == "ipv4" && addr.Host == "true" {
 			// TODO: use netlink
@@ -271,9 +261,9 @@ func (s *Server) Stop() (err error) {
 	}
 
 	var cmds []*exec.Cmd
-	if s.metadata != nil && len(s.metadata.Network.IP) > 0 {
+	if s.metadata != nil && len(s.metadata.Config.Network.IP) > 0 {
 		//		l.Info(fmt.Sprintf("add commands"))
-		for _, addr := range s.metadata.Network.IP {
+		for _, addr := range s.metadata.Config.Network.IP {
 			if addr.Family == "ipv4" && addr.Host == "true" {
 				// TODO: use netlink
 				if addr.Peer != "" {
@@ -281,7 +271,7 @@ func (s *Server) Stop() (err error) {
 				}
 			}
 		}
-		for _, addr := range s.metadata.Network.IP {
+		for _, addr := range s.metadata.Config.Network.IP {
 			if addr.Family == "ipv6" && addr.Host == "true" {
 				// TODO: use netlink
 				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
