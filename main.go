@@ -62,13 +62,15 @@ func main() {
 				break
 			}
 			name := strings.TrimSpace(line)
-			srvmutex.Lock()
-			if _, ok := servers[name]; !ok {
-				servers[name] = &Server{name: name}
-				l.Info(name + " start serving")
-				go servers[name].Start()
+			if name != "" {
+				srvmutex.Lock()
+				if _, ok := servers[name]; !ok {
+					servers[name] = &Server{name: name}
+					l.Info(name + " start serving")
+					go servers[name].Start()
+				}
+				srvmutex.Unlock()
 			}
-			srvmutex.Unlock()
 		}
 		if err := cmd.Wait(); err != nil {
 			l.Info(err.Error())
