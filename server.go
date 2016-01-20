@@ -42,10 +42,6 @@ type Agent struct {
 }
 
 type Metadata struct {
-	Config Config `xml:"config"`
-}
-
-type Config struct {
 	Network     Network     `xml:"network"`
 	CloudConfig CloudConfig `xml:"cloud-config"`
 	Agent       Agent       `xml:"agent,omitempty"`
@@ -176,7 +172,7 @@ func (s *Server) Start() error {
 	}
 
 	var cmds []*exec.Cmd
-	for _, addr := range s.metadata.Config.Network.IP {
+	for _, addr := range s.metadata.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" && addr.Peer != "" {
 			cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 		}
@@ -185,7 +181,7 @@ func (s *Server) Start() error {
 		}
 	}
 
-	metaIP := cleanExists(s.name, s.metadata.Config.Network.IP)
+	metaIP := cleanExists(s.name, s.metadata.Network.IP)
 	for _, addr := range metaIP {
 		if addr.Family == "ipv4" && addr.Host == "true" {
 			if addr.Peer != "" {
@@ -248,15 +244,15 @@ func (s *Server) Stop() (err error) {
 	s.ipv6conn.Close()
 
 	var cmds []*exec.Cmd
-	if len(s.metadata.Config.Network.IP) > 0 {
-		for _, addr := range s.metadata.Config.Network.IP {
+	if len(s.metadata.Network.IP) > 0 {
+		for _, addr := range s.metadata.Network.IP {
 			if addr.Family == "ipv4" && addr.Host == "true" {
 				if addr.Peer != "" {
 					cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 				}
 			}
 		}
-		for _, addr := range s.metadata.Config.Network.IP {
+		for _, addr := range s.metadata.Network.IP {
 			if addr.Family == "ipv6" && addr.Host == "true" {
 				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}

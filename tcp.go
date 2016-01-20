@@ -19,7 +19,7 @@ func getServerByIP(ip string) (*Server, error) {
 	servers.Lock()
 	defer servers.Unlock()
 	for _, s := range servers.List() {
-		for _, addr := range s.metadata.Config.Network.IP {
+		for _, addr := range s.metadata.Network.IP {
 			if addr.Gateway == "false" && addr.Address == ip {
 				return s, nil
 			}
@@ -66,7 +66,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	l.Info(fmt.Sprintf("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL))
 
-	u, _ := url.Parse(s.metadata.Config.CloudConfig.URL)
+	u, _ := url.Parse(s.metadata.CloudConfig.URL)
 	if strings.Index(u.Host, ":") > 0 {
 		host, port, _ = net.SplitHostPort(u.Host)
 	} else {
@@ -97,7 +97,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	uri := path.Clean(r.URL.String())
 	switch uri {
 	case "/agent/log":
-		req, _ := http.NewRequest("POST", s.metadata.Config.Agent.Log, r.Body)
+		req, _ := http.NewRequest("POST", s.metadata.Agent.Log, r.Body)
 		req.Header.Add("Content-Type", r.Header.Get("Content-Type"))
 		//		req.Header.Add("Content-Length", r.Header.Get("Content-Length"))
 		req.ContentLength = r.ContentLength
@@ -110,7 +110,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/2009-04-04/meta-data", "/latest/meta-data":
 		w.Write([]byte("public-hostname\nhostname\nlocal-hostname\ninstance-id\npublic-ipv4\npublic-keys\n"))
 	case "/2009-04-04/meta-data/public-hostname", "/2009-04-04/meta-data/hostname", "/2009-04-04/meta-data/local-hostname", "/latest/meta-data/public-hostname", "/latest/meta-data/hostname", "/latest/meta-data/local-hostname":
-		w.Write([]byte(s.name + "." + s.metadata.Config.Network.DomainName + "\n"))
+		w.Write([]byte(s.name + "." + s.metadata.Network.DomainName + "\n"))
 	case "/2009-04-04/meta-data/local-ipv4":
 		w.Write([]byte(""))
 	case "/2009-04-04/meta-data/instance-id", "/latest/meta-data/instance-id":
@@ -122,7 +122,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/2009-04-04/meta-data/public-keys/0", "/latest/meta-data/public-keys/0":
 		w.Write([]byte("openssh-key\n"))
 	case "/2009-04-04/meta-data/public-keys/0/openssh-key", "/latest/meta-data/public-keys/0/openssh-key":
-		req, _ := http.NewRequest("GET", s.metadata.Config.CloudConfig.URL, nil)
+		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
 		req.URL = u
 		req.URL.Host = net.JoinHostPort(addr.String(), port)
 		req.Host = host
@@ -183,13 +183,13 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} `json:"public_keys,omitempty"`
 		}
 		metadata := &openstackMetaData{}
-		metadata.Meta.Hostname = s.name + "." + s.metadata.Config.Network.DomainName
-		metadata.Hostname = s.name + "." + s.metadata.Config.Network.DomainName
+		metadata.Meta.Hostname = s.name + "." + s.metadata.Network.DomainName
+		metadata.Hostname = s.name + "." + s.metadata.Network.DomainName
 
 		uuid := "644e1dd7-2a7f-18fb-b8ed-ed78c3f92c2b"
 		metadata.Meta.UUID = uuid
 		metadata.UUID = uuid
-		req, _ := http.NewRequest("GET", s.metadata.Config.CloudConfig.URL, nil)
+		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
 		req.URL = u
 		req.URL.Host = net.JoinHostPort(addr.String(), port)
 		req.Host = host
@@ -235,7 +235,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(buf))
 		}
 	case "/2009-04-04/user-data", "/latest/user-data", "/openstack/latest/user_data", "/openstack/latest/user-data", "/openstack/latest/vendor_data", "/openstack/latest/vendor-data":
-		req, _ := http.NewRequest("GET", s.metadata.Config.CloudConfig.URL, nil)
+		req, _ := http.NewRequest("GET", s.metadata.CloudConfig.URL, nil)
 		req.URL = u
 		req.URL.Host = net.JoinHostPort(addr.String(), port)
 		req.Host = host
