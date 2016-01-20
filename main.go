@@ -95,17 +95,17 @@ func main() {
 					servers.Unlock()
 				}
 			case unix.RTM_DELLINK:
-				if msg.Change == unix.IFF_UP {
-					fmt.Printf("dellink\n")
-					servers.Lock()
-					name := msg.Attrs().Name[3:]
-					if s, ok := servers.Get(name); ok {
-						l.Info(name + " stop serving")
-						go s.Stop()
-					}
-					servers.Del(name)
-					servers.Unlock()
+				//				if msg.Change == unix.IFF_UP {
+				fmt.Printf("dellink\n")
+				servers.Lock()
+				name := msg.Attrs().Name[3:]
+				if s, ok := servers.Get(name); ok {
+					l.Info(name + " stop serving")
+					go s.Stop()
 				}
+				servers.Del(name)
+				servers.Unlock()
+				//				}
 			}
 		}
 	}
