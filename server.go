@@ -145,10 +145,12 @@ func (s *Server) Start() error {
 	}
 
 	s.metadata = &Metadata{}
+	fmt.Printf("meta %s\n", buf)
 	if err = xml.Unmarshal(buf, s.metadata); err != nil {
 		return err
 	}
 
+	fmt.Printf("st %+v\n", s.metadata)
 	iface, err := net.InterfaceByName(master_iface)
 	if err != nil {
 		return err
