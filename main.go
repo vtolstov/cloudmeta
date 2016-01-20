@@ -83,7 +83,7 @@ func main() {
 			switch msg.Header.Type {
 			case unix.RTM_NEWLINK:
 				if msg.Change == unix.IFF_UP {
-					fmt.Printf("newlink\n")
+					fmt.Printf("newlink %#+v\n", msg)
 					servers.Lock()
 					name := msg.Attrs().Name[3:]
 					if _, ok := servers.Get(name); !ok {
@@ -96,7 +96,7 @@ func main() {
 				}
 			case unix.RTM_DELLINK:
 				//				if msg.Change == unix.IFF_UP {
-				fmt.Printf("dellink\n")
+				fmt.Printf("dellink %#+v\n", msg)
 				servers.Lock()
 				name := msg.Attrs().Name[3:]
 				if s, ok := servers.Get(name); ok {
