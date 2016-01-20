@@ -82,7 +82,7 @@ func main() {
 		case msg := <-lnkupdate:
 			switch msg.Header.Type {
 			case unix.RTM_NEWLINK:
-				if msg.Change == unix.IFF_UP && msg.Flags&unix.IFF_UP {
+				if msg.Change == unix.IFF_UP {
 					fmt.Printf("newlink\n")
 					servers.Lock()
 					name := msg.Attrs().Name[3:]
@@ -95,7 +95,7 @@ func main() {
 					servers.Unlock()
 				}
 			case unix.RTM_DELLINK:
-				if msg.Change == unix.IFF_UP && msg.Flags & ^unix.IFF_UP {
+				if msg.Change == unix.IFF_UP {
 					fmt.Printf("dellink\n")
 					servers.Lock()
 					name := msg.Attrs().Name[3:]
