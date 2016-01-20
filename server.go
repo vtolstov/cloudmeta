@@ -42,11 +42,13 @@ type Agent struct {
 }
 
 type Metadata struct {
-	Config struct {
-		Network     Network     `xml:"network"`
-		CloudConfig CloudConfig `xml:"cloud-config"`
-		Agent       Agent       `xml:"agent,omitempty"`
-	} `xml:"config"`
+	Config Config `xml:"config"`
+}
+
+type Config struct {
+	Network     Network     `xml:"network"`
+	CloudConfig CloudConfig `xml:"cloud-config"`
+	Agent       Agent       `xml:"agent,omitempty"`
 }
 
 type Server struct {
