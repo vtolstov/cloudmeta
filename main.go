@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"log/syslog"
@@ -9,20 +10,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
-	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/sys/unix"
+
+	"github.com/vishvananda/netlink"
 
 	"gopkg.in/yaml.v2"
 )
 
 func init() {
 	flag.Parse()
-	servers = make(map[string]*Server, 1024)
 }
 
 var l *syslog.Writer
 var master_iface string = "vlan1001"
+var servers *Servers = NewServers()
 
 func main() {
 	var err error
@@ -44,12 +46,14 @@ func main() {
 	l.Info("ListenAndServeTCPv4")
 	go ListenAndServeTCPv4()
 
-	nlink, err := nl.Subscribe(syscall.NETLINK_ROUTE, 1)
+	lnkupdate := make(chan netlink.LinkUpdate)
+	lnkdone := make(chan struct{})
+	err = netlink.LinkSubscribe(lnkupdate, lnkdone)
 	if err != nil {
 		l.Err(err.Error())
 		os.Exit(1)
 	}
-	defer nlink.Close()
+	defer close(lnkdone)
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -63,69 +67,44 @@ func main() {
 		if !strings.HasPrefix(name, "tap") {
 			continue
 		}
-		srvmutex.Lock()
-		if _, ok := servers[name[3:]]; !ok {
+		servers.Lock()
+		if _, ok := servers.Get(name[3:]); !ok {
 			s := &Server{name: name[3:]}
-			servers[name[3:]] = s
+			servers.Add(name[3:], s)
 			l.Info(name[3:] + " start serving")
 			go s.Start()
 		}
-		srvmutex.Unlock()
+		servers.Unlock()
 	}
 
 	for {
-		msgs, err := nlink.Recieve()
-		if err != nil {
-			l.Warning("netlink err: " + err.Error())
-			continue
-		}
-	loop:
-		for _, msg := range msgs {
+		select {
+		case msg := <-lnkupdate:
 			switch msg.Header.Type {
-			case syscall.NLMSG_DONE:
-				break loop
-			case syscall.RTM_NEWLINK:
-				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
-				if err != nil {
-					l.Warning("netlink err: " + err.Error())
-					continue
-				}
-				for _, attr := range attrs {
-					switch attr.Attr.Type {
-					case syscall.IFLA_IFNAME:
-						name := string(attr.Value[:len(attr.Value)-1])
-						if strings.HasPrefix(name, "tap") {
-							srvmutex.Lock()
-							if s, ok := servers[name[3:]]; !ok {
-								s = &Server{name: name[3:]}
-								servers[name[3:]] = s
-								go s.Start()
-								l.Info(name[3:] + " start serving")
-								srvmutex.Unlock()
-							}
-						}
+			case unix.RTM_NEWLINK:
+				if msg.Change == unix.IFF_UP && msg.Flags == unix.IFF_UP {
+					fmt.Printf("newlink\n")
+					servers.Lock()
+					name := msg.Attrs().Name[3:]
+					if _, ok := servers.Get(name); !ok {
+						s := &Server{name: name}
+						servers.Add(name, s)
+						l.Info(name + " start serving")
+						go s.Start()
 					}
+					servers.Unlock()
 				}
-			case syscall.RTM_DELLINK:
-				attrs, err := syscall.ParseNetlinkRouteAttr(&msg)
-				if err != nil {
-					l.Warning("netlink err: " + err.Error())
-					continue
-				}
-				for _, attr := range attrs {
-					switch attr.Attr.Type {
-					case syscall.IFLA_IFNAME:
-						name := string(attr.Value[:len(attr.Value)-1])
-						if strings.HasPrefix(name, "tap") {
-							srvmutex.Lock()
-							if s, ok := servers[name[3:]]; ok {
-								go s.Stop()
-								l.Info(name[3:] + " stop serving")
-								delete(servers, name[3:])
-								srvmutex.Unlock()
-							}
-						}
+			case unix.RTM_DELLINK:
+				if msg.Change == unix.IFF_UP && msg.Flags == 0 & ^unix.IFF_UP {
+					fmt.Printf("dellink\n")
+					servers.Lock()
+					name := msg.Attrs().Name[3:]
+					if s, ok := servers.Get(name); ok {
+						l.Info(name + " stop serving")
+						go s.Stop()
 					}
+					servers.Del(name)
+					servers.Unlock()
 				}
 			}
 		}

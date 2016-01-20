@@ -35,55 +35,36 @@ func (s *Server) ListenAndServeICMPv6() {
 	}
 
 	buffer := make([]byte, 1500)
-
 	go s.Unsolicitated()
 
 	for {
-		s.Lock()
-		if s.shutdown {
+		select {
+		case <-s.done:
 			return
-		}
-		s.Unlock()
-
-		s.ipv6conn.SetReadDeadline(time.Now().Add(time.Second))
-		_, _, src, err := s.ipv6conn.ReadFrom(buffer)
-		if err != nil {
-			//			l.Info(err.Error())
-			continue
-		}
-
-		req := &ICMPv6{}
-		err = req.Unmarshal(buffer)
-		if err != nil {
-			//		l.Info(err.Error())
-			continue
-		}
-		if req.Type == uint8(ipv6.ICMPTypeRouterSolicitation) {
-			s.sendRA(src)
+		default:
+			s.ipv6conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			if _, _, src, err := s.ipv6conn.ReadFrom(buffer); err == nil {
+				req := &ICMPv6{}
+				if err = req.Unmarshal(buffer); err == nil {
+					if req.Type == uint8(ipv6.ICMPTypeRouterSolicitation) {
+						s.sendRA(src)
+					}
+				}
+			}
 		}
 	}
 }
 
 func (s *Server) Unsolicitated() {
 	ticker := time.NewTicker(10 * time.Second)
-	quit := make(chan struct{})
-
-	time.Sleep(5 * time.Second)
 	s.sendRA(nil)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-quit:
-			ticker.Stop()
+		case <-s.done:
 			return
 		case <-ticker.C:
-			s.Lock()
-			if s.shutdown {
-				s.Unlock()
-				ticker.Stop()
-				return
-			}
-			s.Unlock()
 			s.sendRA(nil)
 		}
 	}
@@ -92,11 +73,6 @@ func (s *Server) Unsolicitated() {
 func (s *Server) sendRA(src net.Addr) {
 	var srcIP net.IP
 	var ipAddr net.Addr
-	s.Lock()
-	defer s.Unlock()
-	if s.metadata == nil {
-		return
-	}
 
 	iface, err := net.InterfaceByName("tap" + s.name)
 	if err != nil {
@@ -108,8 +84,7 @@ func (s *Server) sendRA(src net.Addr) {
 		return
 	}
 	for _, addr := range addrs {
-		ip, ipnet, err := net.ParseCIDR(addr.String())
-		_ = ipnet
+		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil {
 			l.Info(err.Error())
 			continue

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -28,11 +27,6 @@ type IP struct {
 	Gateway string `xml:"gateway,attr,omitempty"`
 }
 
-type Storage struct {
-	Size   string `xml:"size"`
-	Target string `xml:"target"`
-}
-
 type CloudConfig struct {
 	URL string `xml:"url,omitempty"`
 }
@@ -43,17 +37,6 @@ type Network struct {
 	IP         []IP     `xml:"ip"`
 }
 
-type ISO struct {
-	Disks []ISODisk `xml:"disk"`
-}
-
-type ISODisk struct {
-	Name   string `xml:"driver->name,attr"`
-	Type   string `xml:"driver->type,attr"`
-	Source string `xml:"source->url,attr"`
-	Target string `xml:"target->name,attr"`
-}
-
 type Agent struct {
 	Log string `xml:"log,omitempty"`
 }
@@ -62,16 +45,13 @@ type Metadata struct {
 	Config struct {
 		Network     Network     `xml:"network"`
 		CloudConfig CloudConfig `xml:"cloud-config"`
-		ISO         ISO         `xml:"iso,omitempty"`
 		Agent       Agent       `xml:"agent,omitempty"`
 	} `xml:"config"`
 }
 
-var httpconn net.Listener
-
 type Server struct {
-	// shutdown flag
-	shutdown bool
+	// shutdown срфт
+	done chan struct{}
 
 	// domain name
 	name string
@@ -86,7 +66,7 @@ type Server struct {
 	ipv6conn *ipv6.PacketConn
 
 	// thread safe
-	sync.RWMutex
+	sync.Mutex
 }
 
 var httpTransport *http.Transport = &http.Transport{
@@ -121,45 +101,61 @@ func cleanExists(name string, ips []IP) []IP {
 	return ret
 }
 
-var servers map[string]*Server
-var srvmutex sync.Mutex
+type Servers struct {
+	mp map[string]*Server
+	sync.Mutex
+}
+
+func (srvs *Servers) Add(name string, srv *Server) {
+	srvs.mp[name] = srv
+}
+
+func (srvs *Servers) Del(name string) {
+	delete(srvs.mp, name)
+}
+
+func (srvs *Servers) Get(name string) (*Server, bool) {
+	s, ok := srvs.mp[name]
+	return s, ok
+}
+
+func (srvs *Servers) List() []*Server {
+	var ret []*Server
+	for _, srv := range srvs.mp {
+		ret = append(ret, srv)
+	}
+	return ret
+}
+
+func NewServers() *Servers {
+	return &Servers{mp: make(map[string]*Server)}
+}
 
 func (s *Server) Start() error {
-	s.Lock()
-	defer s.Unlock()
 	if s.name == "" {
-		return errors.New("invalid server config")
+		return fmt.Errorf("invalid server config")
 	}
+
+	s.done = make(chan struct{})
 
 	cmd := exec.Command("virsh", "metadata", "--domain", s.name, "--uri", "http://simplecloud.ru/", "--live")
 	buf, err := cmd.Output()
 	if err != nil {
-		l.Info("failed to get metadata from libvirt: " + err.Error())
 		return err
 	}
 
 	s.metadata = &Metadata{}
 	if err = xml.Unmarshal(buf, s.metadata); err != nil {
-		l.Info("failed to get unmarshal xml from libvirt: " + err.Error())
 		return err
-	}
-
-	if len(s.metadata.Config.Network.NameServer) == 0 {
-		s.metadata.Config.Network.NameServer = []string{"8.8.8.8"}
-	}
-	if s.metadata.Config.Network.DomainName == "" {
-		s.metadata.Config.Network.DomainName = "simplecloud.club"
 	}
 
 	iface, err := net.InterfaceByName(master_iface)
 	if err != nil {
-		l.Info("failed to get data from master_iface: " + err.Error())
 		return err
 	}
 
 	addrs, err := iface.Addrs()
 	if err != nil {
-		l.Info("failed to get ifaces: " + err.Error())
 		return err
 	}
 	var peer string
@@ -175,7 +171,6 @@ func (s *Server) Start() error {
 		}
 	}
 
-	//	l.Info(fmt.Sprintf("add commands"))
 	var cmds []*exec.Cmd
 	for _, addr := range s.metadata.Config.Network.IP {
 		if addr.Family == "ipv4" && addr.Host == "true" && addr.Peer != "" {
@@ -189,7 +184,6 @@ func (s *Server) Start() error {
 	metaIP := cleanExists(s.name, s.metadata.Config.Network.IP)
 	for _, addr := range metaIP {
 		if addr.Family == "ipv4" && addr.Host == "true" {
-			// TODO: use netlink
 			if addr.Peer != "" {
 				cmds = append(cmds, exec.Command("ip", "-4", "a", "replace", peer, "peer", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			} else {
@@ -202,7 +196,6 @@ func (s *Server) Start() error {
 
 	for _, addr := range metaIP {
 		if addr.Family == "ipv6" && addr.Host == "true" {
-			// TODO: use netlink
 			cmds = append(cmds, exec.Command("ip", "-6", "a", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name))
 			cmds = append(cmds, exec.Command("ip", "-6", "r", "replace", addr.Address+"/"+addr.Prefix, "dev", "tap"+s.name, "proto", "static", "table", "200"))
 		}
@@ -222,12 +215,10 @@ func (s *Server) Start() error {
 		return fmt.Errorf("%s timeout waiting for iface tap%s", s.name, s.name)
 	}
 
-	//	l.Info(fmt.Sprintf("run commands"))
 	for _, cmd := range cmds {
 		l.Info(fmt.Sprintf("%s exec %s", s.name, strings.Join(cmd.Args, " ")))
 		err = cmd.Run()
 		if err != nil {
-			l.Info(fmt.Sprintf("%s Failed to run cmd %s: %s", s.name, strings.Join(cmd.Args, " "), err))
 			return fmt.Errorf("%s Failed to run cmd %s: %s", s.name, strings.Join(cmd.Args, " "), err)
 		}
 	}
@@ -242,30 +233,20 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop() (err error) {
-	s.Lock()
-	defer s.Unlock()
-	if s == nil {
-		return nil
-	}
-	s.shutdown = true
+	close(s.done)
 
 	time.Sleep(2 * time.Second)
 
 	l.Info(fmt.Sprintf("shutdown ipv4 conn"))
-	if s.ipv4conn != nil {
-		s.ipv4conn.Close()
-	}
+	s.ipv4conn.Close()
+
 	l.Info(fmt.Sprintf("shutdown ipv6 conn"))
-	if s.ipv6conn != nil {
-		s.ipv6conn.Close()
-	}
+	s.ipv6conn.Close()
 
 	var cmds []*exec.Cmd
-	if s.metadata != nil && len(s.metadata.Config.Network.IP) > 0 {
-		//		l.Info(fmt.Sprintf("add commands"))
+	if len(s.metadata.Config.Network.IP) > 0 {
 		for _, addr := range s.metadata.Config.Network.IP {
 			if addr.Family == "ipv4" && addr.Host == "true" {
-				// TODO: use netlink
 				if addr.Peer != "" {
 					cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 				}
@@ -273,21 +254,17 @@ func (s *Server) Stop() (err error) {
 		}
 		for _, addr := range s.metadata.Config.Network.IP {
 			if addr.Family == "ipv6" && addr.Host == "true" {
-				// TODO: use netlink
 				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		}
-		//		l.Info(fmt.Sprintf("run commands"))
 		for _, cmd := range cmds {
 			l.Info(fmt.Sprintf("%s exec %s", s.name, cmd))
-			err = cmd.Run()
-			if err != nil {
-				l.Info(fmt.Sprintf("Failed to run cmd %s: %s", cmd, err))
+			if err = cmd.Run(); err != nil {
 				return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 			}
 		}
 	}
-	s.metadata = nil
+
 	return nil
 }
 

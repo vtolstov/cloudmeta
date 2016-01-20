@@ -72,86 +72,70 @@ func (s *Server) ListenAndServeUDPv4() {
 		return
 	}
 
-	_ = gw
-	_ = iface
 	for {
-		s.Lock()
-		if s.shutdown {
-			s.Unlock()
+		select {
+		case <-s.done:
 			return
-		}
-		s.Unlock()
-
-		s.ipv4conn.SetReadDeadline(time.Now().Add(time.Second))
-
-		hdr, _, _, err := s.ipv4conn.ReadFrom(buffer)
-
-		if err != nil {
-			switch v := err.(type) {
-			case *net.OpError:
-				if v.Timeout() {
-					continue
+		default:
+			s.ipv4conn.SetReadDeadline(time.Now().Add(time.Second))
+			hdr, _, _, err := s.ipv4conn.ReadFrom(buffer)
+			if err != nil {
+				switch v := err.(type) {
+				case *net.OpError:
+					if v.Timeout() {
+						continue
+					}
+				case *net.AddrError:
+					if v.Timeout() {
+						continue
+					}
+				case *net.UnknownNetworkError:
+					if v.Timeout() {
+						continue
+					}
+				default:
+					l.Warning(err.Error())
+					return
 				}
-			case *net.AddrError:
-				if v.Timeout() {
-					continue
-				}
-			case *net.UnknownNetworkError:
-				if v.Timeout() {
-					continue
-				}
-			default:
-				l.Warning(err.Error())
-				return
 			}
-		}
-		var ip4 layers.IPv4
-		var udp layers.UDP
-		var dhcp4req layers.DHCPv4
-		parser := gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, &ip4, &udp, &dhcp4req)
-		decoded := []gopacket.LayerType{}
-		err = parser.DecodeLayers(buffer, &decoded)
-		for _, layerType := range decoded {
-			switch layerType {
-			/*
-				case layers.LayerTypeIPv4:
-					fmt.Printf("IP4: %+v\n", ip4)
-				case layers.LayerTypeUDP:
-					fmt.Printf("UDP: %+v\n", udp)
-			*/
-			case layers.LayerTypeDHCPv4:
-				//			fmt.Printf("DHCP4: %+v\n", dhcp4req)
-				if dhcp4req.Operation == layers.DHCP_MSG_REQ {
+			var ip4 layers.IPv4
+			var udp layers.UDP
+			var dhcp4req layers.DHCPv4
+			parser := gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, &ip4, &udp, &dhcp4req)
+			decoded := []gopacket.LayerType{}
+			err = parser.DecodeLayers(buffer, &decoded)
+			for _, layerType := range decoded {
+				switch layerType {
+				case layers.LayerTypeDHCPv4:
+					if dhcp4req.Operation == layers.DHCP_MSG_REQ {
+						dhcp4res, err := s.ServeUDPv4(&dhcp4req)
+						if err != nil {
+							l.Warning(err.Error())
+							continue
+						}
+						if dhcp4res == nil {
+							// ignore empty dhcp packets
+							continue
+						}
 
-					dhcp4res, err := s.ServeUDPv4(&dhcp4req)
-					if err != nil {
-						l.Warning(err.Error())
+						buf := gopacket.NewSerializeBuffer()
+						opts := gopacket.SerializeOptions{true, true}
+						gopacket.SerializeLayers(buf, opts,
+							&layers.UDP{SrcPort: 67, DstPort: 68},
+							dhcp4res)
+
+						wcm := ipv4.ControlMessage{TTL: 255}
+						wcm.Dst = net.IPv4bcast.To4()
+						wcm.Src = gw.To4()
+						wcm.IfIndex = iface.Index
+						err = s.ipv4conn.WriteTo(&ipv4.Header{Len: 20, TOS: hdr.TOS, TotalLen: 20 + int(len(buf.Bytes())), FragOff: 0, TTL: 255, Protocol: int(layers.IPProtocolUDP), Src: gw.To4(), Dst: net.IPv4bcast.To4()}, buf.Bytes(), &wcm)
+						if err != nil {
+							l.Warning(err.Error())
+							continue
+						}
+					} else {
 						continue
 					}
-					if dhcp4res == nil {
-						// ignore empty dhcp packets
-						continue
-					}
-
-					buf := gopacket.NewSerializeBuffer()
-					opts := gopacket.SerializeOptions{true, true}
-					gopacket.SerializeLayers(buf, opts,
-						&layers.UDP{SrcPort: 67, DstPort: 68},
-						dhcp4res)
-
-					wcm := ipv4.ControlMessage{TTL: 255}
-					wcm.Dst = net.IPv4bcast.To4()
-					wcm.Src = gw.To4()
-					wcm.IfIndex = iface.Index
-					err = s.ipv4conn.WriteTo(&ipv4.Header{Len: 20, TOS: hdr.TOS, TotalLen: 20 + int(len(buf.Bytes())), FragOff: 0, TTL: 255, Protocol: int(layers.IPProtocolUDP), Src: gw.To4(), Dst: net.IPv4bcast.To4()}, buf.Bytes(), &wcm)
-					if err != nil {
-						l.Warning(err.Error())
-						continue
-					}
-				} else {
-					//l.Warning("unknown dhcp operation %#+v\n", dhcp4req)
-					// ignore response packets
-					continue
 				}
 			}
 		}

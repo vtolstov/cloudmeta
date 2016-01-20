@@ -16,10 +16,9 @@ import (
 )
 
 func getServerByIP(ip string) (*Server, error) {
-	for _, s := range servers {
-		if s.metadata == nil {
-			continue
-		}
+	servers.Lock()
+	defer servers.Unlock()
+	for _, s := range servers.List() {
 		for _, addr := range s.metadata.Config.Network.IP {
 			if addr.Gateway == "false" && addr.Address == ip {
 				return s, nil
@@ -37,7 +36,6 @@ func ListenAndServeTCPv4() {
 		return
 	}
 
-	httpconn = conn
 	defer conn.Close()
 
 	r := http.NewServeMux()
@@ -51,12 +49,13 @@ func ListenAndServeTCPv4() {
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	s.Serve(httpconn)
+	s.Serve(conn)
 }
 
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var host string
 	var port string
+	var res *http.Response
 
 	host, _, _ = net.SplitHostPort(r.RemoteAddr)
 	s, err := getServerByIP(host)
@@ -66,14 +65,6 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	l.Info(fmt.Sprintf("%s http req: Host:%s RemoteAddr:%s URL:%s\n", s.name, r.Host, r.RemoteAddr, r.URL))
-
-	var res *http.Response
-
-	if s.metadata == nil {
-		l.Info(fmt.Sprintf("err: metadata is nil"))
-		w.WriteHeader(503)
-		return
-	}
 
 	u, _ := url.Parse(s.metadata.Config.CloudConfig.URL)
 	if strings.Index(u.Host, ":") > 0 {
