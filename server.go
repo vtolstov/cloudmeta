@@ -59,7 +59,7 @@ type Server struct {
 	name string
 
 	// domain metadata
-	metadata *Metadata
+	metadata Metadata
 
 	// DHCPv4 conn
 	ipv4conn *ipv4.RawConn
@@ -146,9 +146,9 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	s.metadata = &Metadata{}
+	s.metadata = Metadata{}
 	fmt.Printf("meta %s\n", buf)
-	if err = xml.Unmarshal(buf, s.metadata); err != nil {
+	if err = xml.Unmarshal(buf, &s.metadata); err != nil {
 		return err
 	}
 
