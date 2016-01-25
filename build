@@ -35,3 +35,4 @@ export
 set -e
 
 GOOS=linux GOARCH=amd64 go build -x -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet ${REPO_PATH}
+GOOS=linux GOARCH=amd64 go build -race -x -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet-race ${REPO_PATH}
