@@ -4,3 +4,4 @@ third_party/src/*/.git
 go/
 go.tar.gz
 gopath/
+bin/
