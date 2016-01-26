@@ -2,9 +2,9 @@
 
 ORG_PATH="github.com/vtolstov"
 REPO_PATH="${ORG_PATH}/cloudmeta"
-#VERSION=`git describe --long`
-#BUILD_TIME=`date +%FT%T%z`
-#LDFLAGS="-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
+VERSION=`git describe --long`
+BUILD_TIME=`date +%FT%T%z`
+LDFLAGS="-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
 
 
 rm -rf bin tmp
@@ -21,7 +21,7 @@ go version | grep -q devel
 if [ "x$?" != "x0" ]; then
     export GOROOT=$(pwd)/goroot
     mkdir -p $GOROOT
-    wget -q https://storage.googleapis.com/golang/go1.5.linux-amd64.tar.gz -O tmp/go.tar.gz
+    wget -q https://storage.googleapis.com/golang/go1.5.2.linux-amd64.tar.gz -O tmp/go.tar.gz
     tar --strip-components=1 -C $GOROOT -xf tmp/go.tar.gz
 fi
 
@@ -30,9 +30,7 @@ if [ ! -h $GOPATH/src/${REPO_PATH} ]; then
         ln -sv ../../../.. $GOPATH/src/${REPO_PATH} || echo "exit 255"
 fi
 
-go version
-export
 set -e
 
-GOOS=linux GOARCH=amd64 go build -x -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet ${REPO_PATH}
-GOOS=linux GOARCH=amd64 go build -race -x -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet-race ${REPO_PATH}
+GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet ${REPO_PATH}
+GOOS=linux GOARCH=amd64 go build -race -ldflags "${LDFLAGS}" -tags netgo -o bin/svirtnet-race ${REPO_PATH}

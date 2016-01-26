@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"log/syslog"
@@ -21,14 +22,25 @@ func init() {
 	flag.Parse()
 }
 
-var l *syslog.Writer
-var master_iface string = "vlan1001"
-var servers *Servers = NewServers()
+var (
+	l            *syslog.Writer
+	master_iface string   = "vlan1001"
+	servers      *Servers = NewServers()
+	flagVersion           = flag.Bool("version", false, "display version string")
+	Version               = ""
+	BuildTime             = ""
+)
 
 func main() {
 	var err error
 	var buf []byte
 	var data map[string]string
+
+	if *flagVersion {
+		fmt.Printf("%s build %s\n", Version, BuildTime)
+		os.Exit(0)
+	}
+
 	l, err = syslog.Dial("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, filepath.Base(os.Args[0]))
 	if err != nil {
 		log.Fatalf("Failed to connect to syslog: %s\n", err.Error())
