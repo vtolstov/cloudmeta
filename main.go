@@ -101,7 +101,7 @@ func main() {
 						s := &Server{name: name}
 						servers.Add(name, s)
 						l.Info(name + " start serving")
-						go s.Start()
+						s.Start()
 					}
 					servers.Unlock()
 				}
@@ -112,7 +112,7 @@ func main() {
 				name := msg.Attrs().Name[3:]
 				if s, ok := servers.Get(name); ok {
 					l.Info(name + " stop serving")
-					go s.Stop()
+					s.Stop()
 				}
 				servers.Del(name)
 				servers.Unlock()

@@ -242,24 +242,23 @@ func (s *Server) Stop() (err error) {
 	s.ipv6conn.Close()
 
 	var cmds []*exec.Cmd
-	if len(s.metadata.Network.IP) > 0 {
-		for _, addr := range s.metadata.Network.IP {
-			if addr.Family == "ipv4" && addr.Host == "true" {
-				if addr.Peer != "" {
-					cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
-				}
+	for _, addr := range s.metadata.Network.IP {
+		if addr.Family == "ipv4" && addr.Host == "true" {
+			if addr.Peer != "" {
+				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		}
-		for _, addr := range s.metadata.Network.IP {
-			if addr.Family == "ipv6" && addr.Host == "true" {
-				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
-			}
+	}
+	for _, addr := range s.metadata.Network.IP {
+		if addr.Family == "ipv6" && addr.Host == "true" {
+			cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 		}
-		for _, cmd := range cmds {
-			l.Info(fmt.Sprintf("%s exec %s", s.name, cmd))
-			if err = cmd.Run(); err != nil {
-				return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
-			}
+	}
+
+	for _, cmd := range cmds {
+		l.Info(fmt.Sprintf("%s exec %s", s.name, strings.Join(cmd.Args, " ")))
+		if err = cmd.Run(); err != nil {
+			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
 		}
 	}
 
