@@ -1,3 +1,9 @@
+svirtnet (0.2.2-2) stable; urgency=high
+
+  * Add systemd service.
+
+ -- Gromak Yuriy <sewer@netcloud.pro>  Wed, 17 Feb 2016 19:24:02 +0300
+
 svirtnet (0.2.2-1) stable; urgency=high
 
   * Autobuild.
