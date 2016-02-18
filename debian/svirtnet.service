@@ -10,3 +10,6 @@ RestartSec=5s
 StartLimitInterval=0
 ExecStart=/usr/bin/svirtnet
 
+[Install]
+WantedBy=libvirt-bin.service
+Alias=svirtnet.service
