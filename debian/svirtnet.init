@@ -29,7 +29,7 @@ test -f $DAEMON || exit 0
 case "$1" in
 start)  log_daemon_msg "Starting $DESC" "${NAME}"
         start-stop-daemon --start --pidfile $PIDFILE --quiet --name $NAME --exec $DAEMON --test > /dev/null || return 1
-        start-stop-daemon --start --pidfile $PIDFILE --quiet --background --make-pidfile --name $NAME --exec $DAEMON -- $SVIRTNET_OPTS || return 2
+        start-stop-daemon --start --pidfile $PIDFILE --quiet --background --make-pidfile --name $NAME --exec $DAEMON -- $SVIRTNET_OPTS 2>&1 >> /var/log/svirtnet.log || return 2
         log_end_msg $?
         ;;
 stop)   log_daemon_msg "Stopping $DESC" "${NAME}"
