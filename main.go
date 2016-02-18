@@ -8,8 +8,10 @@ import (
 	"log/syslog"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
@@ -88,8 +90,21 @@ func main() {
 		servers.Unlock()
 	}
 
+	sg := make(chan os.Signal, 1)
+	signal.Notify(sg, unix.SIGINT, unix.SIGQUIT, unix.SIGTERM, unix.SIGHUP)
+
 	for {
 		select {
+		case s := <-sg:
+			fmt.Println("Got signal:", s)
+			switch s {
+			case syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM:
+				for _, srv := range servers.List() {
+					l.Info(srv.name + " stop serving")
+					srv.Stop()
+				}
+				os.Exit(0)
+			}
 		case msg := <-lnkupdate:
 			switch msg.Header.Type {
 			case unix.RTM_NEWLINK:
