@@ -34,7 +34,7 @@ type CloudConfig struct {
 type Network struct {
 	NameServer []string `xml:"nameserver,omitempty"`
 	DomainName string   `xml:"domainname,omitempty"`
-	IP         []IP     `xml:"ip"`
+	IP         []*IP    `xml:"ip"`
 }
 
 type Agent struct {
@@ -42,9 +42,9 @@ type Agent struct {
 }
 
 type Metadata struct {
-	Network     Network     `xml:"network"`
-	CloudConfig CloudConfig `xml:"cloud-config"`
-	Agent       Agent       `xml:"agent,omitempty"`
+	Network     *Network     `xml:"network"`
+	CloudConfig *CloudConfig `xml:"cloud-config"`
+	Agent       *Agent       `xml:"agent,omitempty"`
 }
 
 type Server struct {
@@ -73,8 +73,8 @@ var httpTransport *http.Transport = &http.Transport{
 }
 var httpClient *http.Client = &http.Client{Transport: httpTransport, Timeout: 10 * time.Second}
 
-func cleanExists(name string, ips []IP) []IP {
-	ret := make([]IP, len(ips))
+func cleanExists(name string, ips []*IP) []*IP {
+	ret := make([]*IP, len(ips))
 	copy(ret[:], ips[:])
 
 	iface, err := net.InterfaceByName("tap" + name)
@@ -90,7 +90,7 @@ func cleanExists(name string, ips []IP) []IP {
 		for i, ip := range ret {
 			if ip.Address+"/"+ip.Prefix == addr.String() {
 				copy(ret[i:], ret[i+1:])
-				ret[len(ret)-1] = IP{}
+				ret[len(ret)-1] = &IP{}
 				ret = ret[:len(ret)-1]
 				break loop
 			}
@@ -130,6 +130,9 @@ func NewServers() *Servers {
 }
 
 func (s *Server) Start() error {
+	var haveIPv4 bool
+	var haveIPv6 bool
+
 	if s.name == "" {
 		return fmt.Errorf("invalid server config")
 	}
@@ -171,11 +174,18 @@ func (s *Server) Start() error {
 
 	var cmds []*exec.Cmd
 	for _, addr := range s.metadata.Network.IP {
-		if addr.Family == "ipv4" && addr.Host == "true" && addr.Peer != "" {
-			cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
-		}
-		if addr.Family == "ipv6" && addr.Host == "false" {
-			cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent6_spoofing", addr.Address+","+"tap"+s.name))
+		switch addr.Family {
+		case "ipv4":
+			if addr.Host == "false" {
+				haveIPv4 = true
+			} else if addr.Peer != "" {
+				cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+			}
+		case "ipv6":
+			if addr.Host == "false" {
+				cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent6_spoofing", addr.Address+","+"tap"+s.name))
+				haveIPv6 = true
+			}
 		}
 	}
 
@@ -190,7 +200,9 @@ func (s *Server) Start() error {
 		}
 	}
 
-	cmds = append(cmds, exec.Command("sysctl", "-w", "net.ipv4.conf.tap"+s.name+".proxy_arp=1"))
+	if haveIPv4 {
+		cmds = append(cmds, exec.Command("sysctl", "-w", "net.ipv4.conf.tap"+s.name+".proxy_arp=1"))
+	}
 
 	for _, addr := range metaIP {
 		if addr.Family == "ipv6" && addr.Host == "true" {
@@ -221,16 +233,20 @@ func (s *Server) Start() error {
 		}
 	}
 
-	l.Info(s.name + " ListenAndServeUDPv4")
-	go s.ListenAndServeUDPv4()
+	if haveIPv4 {
+		l.Info(s.name + " ListenAndServeUDPv4")
+		go s.ListenAndServeUDPv4()
+	}
 
-	l.Info(s.name + " ListenAndServeICMPv6")
-	go s.ListenAndServeICMPv6()
+	if haveIPv6 {
+		l.Info(s.name + " ListenAndServeICMPv6")
+		go s.ListenAndServeICMPv6()
+	}
 
 	return nil
 }
 
-func (s *Server) Stop() (err error) {
+func (s *Server) Stop(cleanup bool) (err error) {
 	close(s.done)
 
 	time.Sleep(2 * time.Second)
@@ -241,24 +257,26 @@ func (s *Server) Stop() (err error) {
 	l.Info(fmt.Sprintf("shutdown ipv6 conn"))
 	s.ipv6conn.Close()
 
-	var cmds []*exec.Cmd
-	for _, addr := range s.metadata.Network.IP {
-		if addr.Family == "ipv4" && addr.Host == "true" {
-			if addr.Peer != "" {
-				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+	if cleanup {
+		var cmds []*exec.Cmd
+		for _, addr := range s.metadata.Network.IP {
+			if addr.Family == "ipv4" && addr.Host == "true" {
+				if addr.Peer != "" {
+					cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+				}
 			}
 		}
-	}
-	for _, addr := range s.metadata.Network.IP {
-		if addr.Family == "ipv6" && addr.Host == "true" {
-			cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+		for _, addr := range s.metadata.Network.IP {
+			if addr.Family == "ipv6" && addr.Host == "true" {
+				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
+			}
 		}
-	}
 
-	for _, cmd := range cmds {
-		l.Info(fmt.Sprintf("%s exec %s", s.name, strings.Join(cmd.Args, " ")))
-		if err = cmd.Run(); err != nil {
-			return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
+		for _, cmd := range cmds {
+			l.Info(fmt.Sprintf("%s exec %s", s.name, strings.Join(cmd.Args, " ")))
+			if err = cmd.Run(); err != nil {
+				return fmt.Errorf("Failed to run cmd %s: %s", cmd, err)
+			}
 		}
 	}
 

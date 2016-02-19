@@ -85,7 +85,21 @@ func main() {
 			s := &Server{name: name[3:]}
 			servers.Add(name[3:], s)
 			l.Info(name[3:] + " start serving")
-			go s.Start()
+			wait := make(chan struct{})
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						err, ok := r.(error)
+						if !ok {
+							err = fmt.Errorf("pkg: %v", r)
+						}
+						fmt.Printf(err.Error())
+					}
+				}()
+				s.Start()
+				close(wait)
+			}()
+			<-wait
 		}
 		servers.Unlock()
 	}
@@ -95,14 +109,31 @@ func main() {
 
 	for {
 		select {
-		case s := <-sg:
-			fmt.Println("Got signal:", s)
-			switch s {
+		case signame := <-sg:
+			fmt.Println("Got signal:", signame)
+			switch signame {
 			case syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM:
-				for _, srv := range servers.List() {
-					l.Info(srv.name + " stop serving")
-					srv.Stop()
+				servers.Lock()
+				for _, s := range servers.List() {
+					l.Info(s.name + " stop serving")
+					wait := make(chan struct{})
+					go func() {
+						defer func() {
+							if r := recover(); r != nil {
+								err, ok := r.(error)
+								if !ok {
+									err = fmt.Errorf("pkg: %v", r)
+								}
+								fmt.Printf(err.Error())
+							}
+						}()
+						s.Stop(false)
+						close(wait)
+					}()
+					<-wait
+					servers.Del(s.name)
 				}
+				servers.Unlock()
 				os.Exit(0)
 			}
 		case msg := <-lnkupdate:
@@ -116,7 +147,21 @@ func main() {
 						s := &Server{name: name}
 						servers.Add(name, s)
 						l.Info(name + " start serving")
-						s.Start()
+						wait := make(chan struct{})
+						go func() {
+							defer func() {
+								if r := recover(); r != nil {
+									err, ok := r.(error)
+									if !ok {
+										err = fmt.Errorf("pkg: %v", r)
+									}
+									fmt.Printf(err.Error())
+								}
+							}()
+							s.Start()
+							close(wait)
+						}()
+						<-wait
 					}
 					servers.Unlock()
 				}
@@ -127,7 +172,21 @@ func main() {
 				name := msg.Attrs().Name[3:]
 				if s, ok := servers.Get(name); ok {
 					l.Info(name + " stop serving")
-					s.Stop()
+					wait := make(chan struct{})
+					go func() {
+						defer func() {
+							if r := recover(); r != nil {
+								err, ok := r.(error)
+								if !ok {
+									err = fmt.Errorf("pkg: %v", r)
+								}
+								fmt.Printf(err.Error())
+							}
+						}()
+						s.Stop(true)
+						close(wait)
+					}()
+					<-wait
 				}
 				servers.Del(name)
 				servers.Unlock()
