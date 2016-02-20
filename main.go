@@ -147,7 +147,6 @@ func main() {
 						s := &Server{name: name}
 						servers.Add(name, s)
 						l.Info(name + " start serving")
-						wait := make(chan struct{})
 						go func() {
 							defer func() {
 								if r := recover(); r != nil {
@@ -159,9 +158,7 @@ func main() {
 								}
 							}()
 							s.Start()
-							close(wait)
 						}()
-						<-wait
 					}
 					servers.Unlock()
 				}
@@ -172,7 +169,6 @@ func main() {
 				name := msg.Attrs().Name[3:]
 				if s, ok := servers.Get(name); ok {
 					l.Info(name + " stop serving")
-					wait := make(chan struct{})
 					go func() {
 						defer func() {
 							if r := recover(); r != nil {
@@ -184,9 +180,7 @@ func main() {
 							}
 						}()
 						s.Stop(true)
-						close(wait)
 					}()
-					<-wait
 				}
 				servers.Del(name)
 				servers.Unlock()

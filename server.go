@@ -130,6 +130,8 @@ func NewServers() *Servers {
 }
 
 func (s *Server) Start() error {
+	s.Lock()
+	defer s.Unlock()
 	var haveIPv4 bool
 	var haveIPv6 bool
 
@@ -247,14 +249,16 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop(cleanup bool) (err error) {
+	s.Lock()
+	defer s.Unlock()
 	close(s.done)
 
 	time.Sleep(2 * time.Second)
 
-	l.Info(fmt.Sprintf("shutdown ipv4 conn"))
+	l.Info(fmt.Sprintf("%s shutdown ipv4 conn", s.name))
 	s.ipv4conn.Close()
 
-	l.Info(fmt.Sprintf("shutdown ipv6 conn"))
+	l.Info(fmt.Sprintf("%s shutdown ipv6 conn", s.name))
 	s.ipv6conn.Close()
 
 	if cleanup {
