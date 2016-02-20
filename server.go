@@ -251,10 +251,10 @@ func (s *Server) Stop(cleanup bool) (err error) {
 
 	time.Sleep(2 * time.Second)
 
-	l.Info(fmt.Sprintf("shutdown ipv4 conn"))
+	l.Info(fmt.Sprintf("%s shutdown ipv4 conn", s.name))
 	s.ipv4conn.Close()
 
-	l.Info(fmt.Sprintf("shutdown ipv6 conn"))
+	l.Info(fmt.Sprintf("%s shutdown ipv6 conn", s.name))
 	s.ipv6conn.Close()
 
 	if cleanup {
