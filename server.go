@@ -130,6 +130,8 @@ func NewServers() *Servers {
 }
 
 func (s *Server) Start() error {
+	s.Lock()
+	defer s.Unlock()
 	var haveIPv4 bool
 	var haveIPv6 bool
 
@@ -247,6 +249,8 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop(cleanup bool) (err error) {
+	s.Lock()
+	defer s.Unlock()
 	close(s.done)
 
 	time.Sleep(2 * time.Second)
