@@ -65,6 +65,8 @@ type Server struct {
 
 	// thread safe
 	sync.Mutex
+
+	downtime time.Time
 }
 
 var httpTransport *http.Transport = &http.Transport{
@@ -260,6 +262,8 @@ func (s *Server) Stop(cleanup bool) (err error) {
 
 	l.Info(fmt.Sprintf("%s shutdown ipv6 conn", s.name))
 	s.ipv6conn.Close()
+
+	s.downtime = time.Now()
 
 	if cleanup {
 		var cmds []*exec.Cmd

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -107,8 +108,19 @@ func main() {
 	sg := make(chan os.Signal, 1)
 	signal.Notify(sg, unix.SIGINT, unix.SIGQUIT, unix.SIGTERM, unix.SIGHUP)
 
+	tk := time.NewTicker(2 * time.Minute)
+	defer tk.Stop()
 	for {
 		select {
+		case <-tk.C:
+			servers.Lock()
+			for _, s := range servers.List() {
+				t := time.Now().Add(5 * time.Minute)
+				if t.After(s.downtime) {
+					servers.Del(s.name)
+				}
+			}
+			servers.Unlock()
 		case signame := <-sg:
 			fmt.Println("Got signal:", signame)
 			switch signame {
@@ -143,9 +155,23 @@ func main() {
 					//					fmt.Printf("newlink %#+v\n", msg)
 					servers.Lock()
 					name := msg.Attrs().Name[3:]
-					if _, ok := servers.Get(name); !ok {
-						s := &Server{name: name}
+					if s, ok := servers.Get(name); !ok {
+						s = &Server{name: name}
 						servers.Add(name, s)
+						l.Info(name + " start serving")
+						go func() {
+							defer func() {
+								if r := recover(); r != nil {
+									err, ok := r.(error)
+									if !ok {
+										err = fmt.Errorf("pkg: %v", r)
+									}
+									fmt.Printf(err.Error())
+								}
+							}()
+							s.Start()
+						}()
+					} else {
 						l.Info(name + " start serving")
 						go func() {
 							defer func() {
@@ -182,7 +208,6 @@ func main() {
 						s.Stop(true)
 					}()
 				}
-				servers.Del(name)
 				servers.Unlock()
 				//				}
 			}
