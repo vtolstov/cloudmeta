@@ -116,7 +116,7 @@ func main() {
 			servers.Lock()
 			for _, s := range servers.List() {
 				t := time.Now().Add(5 * time.Minute)
-				if t.After(s.downtime) {
+				if !s.downtime.IsZero() && t.After(s.downtime) {
 					servers.Del(s.name)
 				}
 			}
