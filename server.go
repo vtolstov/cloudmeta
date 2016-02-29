@@ -182,11 +182,11 @@ func (s *Server) Start() error {
 		case "ipv4":
 			if addr.Host == "false" {
 				haveIPv4 = true
-			} else if addr.Peer != "" {
+			} else if addr.Peer != "" && ipset_support {
 				cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		case "ipv6":
-			if addr.Host == "false" {
+			if addr.Host == "false" && ipset_support {
 				cmds = append(cmds, exec.Command("ipset", "-!", "add", "prevent6_spoofing", addr.Address+","+"tap"+s.name))
 				haveIPv6 = true
 			}

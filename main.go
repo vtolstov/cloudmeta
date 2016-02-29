@@ -26,12 +26,13 @@ func init() {
 }
 
 var (
-	l            *syslog.Writer
-	master_iface string   = "vlan1001"
-	servers      *Servers = NewServers()
-	flagVersion           = flag.Bool("version", false, "display version string")
-	Version               = ""
-	BuildTime             = ""
+	l             *syslog.Writer
+	master_iface  string   = "vlan1001"
+	ipset_support          = true
+	servers       *Servers = NewServers()
+	flagVersion            = flag.Bool("version", false, "display version string")
+	Version                = ""
+	BuildTime              = ""
 )
 
 func main() {
@@ -54,6 +55,9 @@ func main() {
 	if buf, err = ioutil.ReadFile("/etc/svirtnet.yml"); err == nil {
 		if err = yaml.Unmarshal(buf, &data); err == nil {
 			master_iface = data["interface"]
+			if _, ok := data["ipset_support"]; ok {
+				ipset_support = data["ipset_support"].(bool)
+			}
 		}
 	}
 
