@@ -55,8 +55,10 @@ func main() {
 	if buf, err = ioutil.ReadFile("/etc/svirtnet.yml"); err == nil {
 		if err = yaml.Unmarshal(buf, &data); err == nil {
 			master_iface = data["interface"]
-			if _, ok := data["ipset_support"]; ok {
-				ipset_support = data["ipset_support"].(bool)
+			if val, ok := data["ipset_support"]; ok {
+				if val == "false" {
+					ipset_support = false
+				}
 			}
 		}
 	}
