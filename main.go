@@ -103,7 +103,9 @@ func main() {
 						fmt.Printf(err.Error())
 					}
 				}()
-				s.Start()
+				if err := s.Start(); err != nil {
+					panic(err)
+				}
 				close(wait)
 			}()
 			<-wait
@@ -145,7 +147,9 @@ func main() {
 								fmt.Printf(err.Error())
 							}
 						}()
-						s.Stop(false)
+						if err := s.Stop(false); err != nil {
+							panic(err)
+						}
 						close(wait)
 					}()
 					<-wait
@@ -175,7 +179,9 @@ func main() {
 									fmt.Printf(err.Error())
 								}
 							}()
-							s.Start()
+							if err := s.Start(); err != nil {
+								panic(err)
+							}
 						}()
 					} else {
 						l.Info(name + " start serving")
@@ -189,7 +195,9 @@ func main() {
 									fmt.Printf(err.Error())
 								}
 							}()
-							s.Start()
+							if err := s.Start(); err != nil {
+								panic(err)
+							}
 						}()
 					}
 					servers.Unlock()
@@ -211,7 +219,9 @@ func main() {
 								fmt.Printf(err.Error())
 							}
 						}()
-						s.Stop(true)
+						if err := s.Stop(true); err != nil {
+							panic(err)
+						}
 					}()
 				}
 				servers.Unlock()
