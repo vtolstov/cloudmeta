@@ -134,7 +134,6 @@ func main() {
 			case syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM:
 				servers.Lock()
 				for _, s := range servers.List() {
-					l.Info(s.name + " stop serving")
 					wait := make(chan struct{})
 					go func() {
 						defer func() {
@@ -170,7 +169,6 @@ func main() {
 					if s, ok := servers.Get(name); !ok {
 						s = &Server{name: name}
 						servers.Add(name, s)
-						l.Info(name + " start serving")
 						go func() {
 							defer func() {
 								if r := recover(); r != nil {
@@ -186,7 +184,6 @@ func main() {
 							}
 						}()
 					} else {
-						l.Info(name + " start serving")
 						go func() {
 							defer func() {
 								if r := recover(); r != nil {
@@ -210,7 +207,6 @@ func main() {
 				servers.Lock()
 				name := msg.Attrs().Name[3:]
 				if s, ok := servers.Get(name); ok {
-					l.Info(name + " stop serving")
 					go func() {
 						defer func() {
 							if r := recover(); r != nil {
