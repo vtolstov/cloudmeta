@@ -34,7 +34,6 @@ var (
 	Version                = ""
 	BuildTime              = ""
 )
-
 func main() {
 	var err error
 	var buf []byte
@@ -163,8 +162,11 @@ func main() {
 			case unix.RTM_NEWLINK:
 				if msg.Change == unix.IFF_UP {
 					//					fmt.Printf("newlink %#+v\n", msg)
-					servers.Lock()
 					name := msg.Attrs().Name[3:]
+		      if !strings.HasPrefix(msg.Attrs().Name, "tap") {
+			      continue
+		      }
+					servers.Lock()
 					if s, ok := servers.Get(name); !ok {
 						s = &Server{name: name}
 						servers.Add(name, s)
