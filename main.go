@@ -157,6 +157,9 @@ func main() {
 				os.Exit(0)
 			}
 		case msg := <-lnkupdate:
+			if !strings.HasPrefix(msg.Attrs().Name, "tap") {
+				continue
+			}
 			switch msg.Header.Type {
 			case unix.RTM_NEWLINK:
 				if msg.Change == unix.IFF_UP {
