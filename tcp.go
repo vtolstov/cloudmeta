@@ -19,6 +19,9 @@ func getServerByIP(ip string) (*Server, error) {
 	servers.Lock()
 	defer servers.Unlock()
 	for _, s := range servers.List() {
+		if s.metadata.Network == nil || s.metadata.Network.IP == nil {
+			continue
+		}
 		for _, addr := range s.metadata.Network.IP {
 			if addr.Gateway == "false" && addr.Address == ip {
 				return s, nil

@@ -148,7 +148,7 @@ func (s *Server) Start() error {
 
 	s.done = make(chan struct{})
 
-	cmd := exec.Command("virsh", "metadata", "--domain", s.name, "--uri", "http://simplecloud.ru/", "--live")
+	cmd := exec.Command("virsh", "-q", "metadata", "--domain", s.name, "--uri", "http://simplecloud.ru/", "--live")
 	buf, err := cmd.Output()
 	if err != nil {
 		return err
@@ -261,25 +261,31 @@ func (s *Server) Stop(cleanup bool) (err error) {
 	l.Info(s.name + " stop serving")
 	s.downtime = time.Now()
 
-	close(s.done)
+	if s.done != nil {
+		close(s.done)
+	}
 
-	l.Info(fmt.Sprintf("%s shutdown ipv4 conn", s.name))
-	s.ipv4conn.Close()
+	if s.ipv4conn != nil {
+		l.Info(fmt.Sprintf("%s shutdown ipv4 conn", s.name))
+		s.ipv4conn.Close()
+	}
 
-	l.Info(fmt.Sprintf("%s shutdown ipv6 conn", s.name))
-	s.ipv6conn.Close()
+	if s.ipv6conn != nil {
+		l.Info(fmt.Sprintf("%s shutdown ipv6 conn", s.name))
+		s.ipv6conn.Close()
+	}
 
-	if cleanup {
+	if cleanup && ipset_support {
 		var cmds []*exec.Cmd
 		for _, addr := range s.metadata.Network.IP {
 			if addr.Family == "ipv4" && addr.Host == "true" {
-				if addr.Peer != "" && ipset_support {
+				if addr.Peer != "" {
 					cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 				}
 			}
 		}
 		for _, addr := range s.metadata.Network.IP {
-			if addr.Family == "ipv6" && addr.Host == "true" && ipset_support {
+			if addr.Family == "ipv6" && addr.Host == "true" {
 				cmds = append(cmds, exec.Command("ipset", "-!", "del", "prevent6_spoofing", addr.Address+"/"+addr.Prefix+","+"tap"+s.name))
 			}
 		}
