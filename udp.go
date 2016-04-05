@@ -171,7 +171,7 @@ func (s *Server) ServeUDPv4(dhcpreq *layers.DHCPv4) (*layers.DHCPv4, error) {
 
 	}
 	if ipnet == nil || ipnet.Mask == nil || gw == nil || ip == nil {
-		return nil, fmt.Errorf("failed to get ipv4 info")
+		return nil, fmt.Errorf("wrong or missing addrs specified: ipnet:%+v gw:%s ip:%s", ipnet, gw, ip)
 	}
 
 	opt := dhcpreq.Options[0]
