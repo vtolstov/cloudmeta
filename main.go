@@ -30,7 +30,8 @@ var (
 	master_iface  string   = "vlan1001"
 	ipset_support          = true
 	servers       *Servers = NewServers()
-	flagVersion            = flag.Bool("version", false, "display version string")
+	flagVersion            = flag.Bool("v", false, "display version string")
+	flagInstall            = flag.Bool("i", false, "install service")
 	Version                = ""
 	BuildTime              = ""
 )
@@ -42,6 +43,14 @@ func main() {
 
 	if *flagVersion {
 		fmt.Printf("%s build %s\n", Version, BuildTime)
+		os.Exit(0)
+	}
+
+	if *flagInstall {
+		if err = installService(); err != nil {
+			log.Fatalf("failed to install service: %s\n", err.Error())
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
