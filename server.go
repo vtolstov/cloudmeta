@@ -148,7 +148,7 @@ func (s *Server) Start() error {
 
 	s.done = make(chan struct{})
 
-	cmd := exec.Command("virsh", "-q", "metadata", "--domain", s.name, "--uri", "http://simplecloud.ru/", "--live")
+	cmd := exec.Command("virsh", "-q", "metadata", "--domain", s.name, "--uri", xmlnsuri, "--live")
 	buf, err := cmd.Output()
 	if err != nil {
 		return err

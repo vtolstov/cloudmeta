@@ -29,6 +29,7 @@ var (
 	l             *syslog.Writer
 	master_iface  string   = "vlan1001"
 	ipset_support          = true
+	xmlnsuri               = "http://simplecloud.ru/"
 	servers       *Servers = NewServers()
 	flagVersion            = flag.Bool("v", false, "display version string")
 	flagInstall            = flag.Bool("i", false, "install service")
@@ -63,11 +64,16 @@ func main() {
 
 	if buf, err = ioutil.ReadFile("/etc/svirtnet.yml"); err == nil {
 		if err = yaml.Unmarshal(buf, &data); err == nil {
-			master_iface = data["interface"]
+			if val, ok := data["interface"]; ok && val != "" {
+				master_iface = val
+			}
 			if val, ok := data["ipset_support"]; ok {
 				if val == "false" {
 					ipset_support = false
 				}
+			}
+			if val, ok := data["xmlnsuri"]; ok && val != "" {
+				xmlnsuri = val
 			}
 		}
 	}
