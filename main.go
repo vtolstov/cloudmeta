@@ -62,18 +62,20 @@ func main() {
 	}
 	defer l.Close()
 
-	if buf, err = ioutil.ReadFile("/etc/svirtnet.yml"); err == nil {
-		if err = yaml.Unmarshal(buf, &data); err == nil {
-			if val, ok := data["interface"]; ok && val != "" {
-				master_iface = val
-			}
-			if val, ok := data["ipset_support"]; ok {
-				if val == "false" {
-					ipset_support = false
+	for _, fname := range []string{"svirtnet.yml", "cloudmeta.yaml"} {
+		if buf, err = ioutil.ReadFile(filepath.Join("/etc", fname)); err == nil {
+			if err = yaml.Unmarshal(buf, &data); err == nil {
+				if val, ok := data["interface"]; ok && val != "" {
+					master_iface = val
 				}
-			}
-			if val, ok := data["xmlnsuri"]; ok && val != "" {
-				xmlnsuri = val
+				if val, ok := data["ipset_support"]; ok {
+					if val == "false" {
+						ipset_support = false
+					}
+				}
+				if val, ok := data["xmlnsuri"]; ok && val != "" {
+					xmlnsuri = val
+				}
 			}
 		}
 	}
