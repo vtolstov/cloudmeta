@@ -8,6 +8,7 @@ Type=simple
 Restart=always
 RestartSec=5s
 StartLimitInterval=0
+EnvironmentFile=-/etc/environment
 ExecStart=/usr/bin/svirtnet
 
 [Install]
