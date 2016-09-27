@@ -72,6 +72,7 @@ type Server struct {
 var httpTransport *http.Transport = &http.Transport{
 	Dial:            (&net.Dialer{DualStack: true}).Dial,
 	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+  Proxy: http.ProxyFromEnvironment,
 }
 var httpClient *http.Client = &http.Client{Transport: httpTransport, Timeout: 10 * time.Second}
 
